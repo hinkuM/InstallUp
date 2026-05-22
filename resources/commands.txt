@@ -1,0 +1,20 @@
+mkdir -p /var/ossec/etc/certs
+
+chown -R root:wazuh /var/ossec/etc/certs
+chmod 750 /var/ossec/etc/certs
+chmod 640 /var/ossec/etc/certs/*
+
+vi /usr/local/opnsense/service/templates/OPNsense/WazuhAgent/ossec_config.d/099-custom-certs.conf
+
+  <client>
+    <enrollment>
+      <groups>firewall</groups>
+      <server_ca_path>/var/ossec/etc/certs/root-ca.pem</server_ca_path>
+      <agent_certificate_path>/var/ossec/etc/certs/agent.cert</agent_certificate_path>
+      <agent_key_path>/var/ossec/etc/certs/agent.key</agent_key_path>
+    </enrollment>
+  </client>
+
+
+configctl template reload OPNsense/WazuhAgent
+pluginctl -r wazuhagent

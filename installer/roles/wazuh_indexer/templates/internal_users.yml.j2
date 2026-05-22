@@ -1,0 +1,27 @@
+---
+_meta:
+  type: "internalusers"
+  config_version: 2
+
+{{ wazuh_admin_username }}:
+  hash: "{{ wazuh_admin_password | password_hash('bcrypt') }}"
+  reserved: true
+  backend_roles: ["admin"]
+
+{{ wazuh_writer_username }}:
+  hash: "{{ wazuh_writer_password | password_hash('bcrypt') }}"
+  reserved: false
+  backend_roles: ["logstash"]
+  description: "Dedicated account for Filebeat log ingestion"
+
+{{ wazuh_read_only_username }}:
+  hash: "{{ wazuh_read_only_password | password_hash('bcrypt') }}"
+  reserved: false
+  backend_roles:
+    - "kibana_user"
+    - "readall"
+  description: "User for reading only"
+
+kibanaserver:
+  hash: "{{ wazuh_kibanaserver_password | password_hash('bcrypt') }}"
+  reserved: true

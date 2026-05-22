@@ -1,0 +1,273 @@
+###### Environment section ######
+
+- name: Create directories for all certs
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: "directory"
+    mode: "0550"
+  loop:
+    - "{{ root_ca_key_dir }}"
+    - "{{ wazuh_indexer_cert_dir }}"
+    - "{{ wazuh_dashboard_cert_dir }}"
+    - "{{ wazuh_manager_cert_dir }}"
+    - "{{ filebeat_cert_dir }}"
+    - "{{ grafana_cert_dir }}"
+    - "{{ loki_cert_dir }}"
+    - "{{ prometheus_cert_dir }}"
+  tags: ["certs"]
+
+###### Root CA section ######
+
+- name: Generate root CA private key
+  community.crypto.openssl_privatekey:
+    path: "{{ root_ca_key_dir }}/root-ca-key.pem"
+    size: 4096
+    type: "RSA"
+    mode: "0700"
+  no_log: true
+  tags: ["certs"]
+
+- name: Generate Root CSR to generate CA
+  community.crypto.openssl_csr:
+    path: "{{ root_ca_dir }}/root-ca.csr"
+    privatekey_path: "{{ root_ca_key_dir }}/root-ca-key.pem"
+    use_common_name_for_san: false
+    common_name: "root CA"
+    basic_constraints:
+      - "CA:TRUE"
+    basic_constraints_critical: true
+    key_usage:
+      - "keyCertSign"
+    key_usage_critical: true
+    mode: "0444"
+  no_log: true
+  tags: ["certs"]   
+
+- name: Generate Root CA self-signed certificate from CSR
+  community.crypto.x509_certificate:
+    path: "{{ root_ca_dir }}/root-ca.pem"
+    csr_path: "{{ root_ca_dir }}/root-ca.csr"
+    privatekey_path: "{{ root_ca_key_dir }}/root-ca-key.pem"
+    selfsigned_not_after: "+3650d"
+    provider: "selfsigned"
+    mode: "0444"
+  no_log: true
+  tags: ["certs"]   
+
+###### System trust section ######
+
+- name: Install Root CA system-wide
+  ansible.builtin.copy:
+    src: "{{ root_ca_dir }}/root-ca.pem"
+    dest: "/usr/local/share/ca-certificates/root-ca.crt"
+    remote_src: true
+    mode: "0444"
+  no_log: true
+  tags: ["certs"]
+
+- name: Update CA trust
+  ansible.builtin.command: "update-ca-certificates"
+  no_log: true
+  tags: ["certs"]
+
+###### Server certificates section ######
+
+- name: Generate server keys
+  community.crypto.openssl_privatekey:
+    path: "{{ item }}/server-key.pem"
+    size: 4096
+    type: "RSA"
+    format: "pkcs8"
+    cipher: "auto"
+    passphrase: ""
+    mode: "0440"
+  loop:
+    - "{{ wazuh_indexer_cert_dir }}"
+    - "{{ wazuh_dashboard_cert_dir }}"
+    - "{{ wazuh_manager_cert_dir }}"
+    - "{{ filebeat_cert_dir }}"
+    - "{{ grafana_cert_dir }}"
+    - "{{ loki_cert_dir }}"
+    - "{{ prometheus_cert_dir }}"
+  no_log: true
+  tags: ["certs"]
+
+- name: Generate server CSRs
+  community.crypto.openssl_csr:
+    path: "{{ item.path }}/server.csr"
+    privatekey_path: "{{ item.path  }}/server-key.pem"
+    country_name: "{{ country_name }}"
+    state_or_province_name: "{{ state_or_province_name }}"
+    locality_name: "{{ locality_name }}"
+    organization_name: "{{ organization_name }}"
+    common_name: "{{ item.cName }}"
+    subject_alt_name:
+      - "DNS:{{ servers.logs.first }}.{{ domains.main.name }}"
+      - "DNS:{{ servers.logs.first }}"
+    mode: "0440"
+  loop: 
+    - path: "{{ wazuh_indexer_cert_dir }}"
+      cName: "{{ wazuh_indexer_common_name }}"
+    - path: "{{ wazuh_dashboard_cert_dir }}"
+      cName: "{{ wazuh_dashboard_common_name }}"
+    - path: "{{ wazuh_manager_cert_dir }}"
+      cName: "{{ wazuh_manager_common_name }}"
+    - path: "{{ filebeat_cert_dir }}"
+      cName: "{{ filebeat_common_name }}"
+    - path: "{{ grafana_cert_dir }}"
+      cName: "{{ grafana_common_name }}"
+    - path: "{{ loki_cert_dir }}"
+      cName: "{{ loki_common_name }}"
+    - path: "{{ prometheus_cert_dir }}"
+      cName: "{{ prometheus_common_name }}"
+  no_log: true
+  tags: ["certs"]
+
+- name: Sign all server certificates with Root CA
+  community.crypto.x509_certificate:
+    path: "{{ item }}/server-crt.pem"
+    csr_path: "{{ item }}/server.csr"
+    ownca_path: "{{ root_ca_dir }}/root-ca.pem"
+    ownca_privatekey_path: "{{ root_ca_key_dir }}/root-ca-key.pem"
+    provider: "ownca"
+    selfsigned_not_after: "+825d"
+    mode: "0440"
+  loop:
+    - "{{ wazuh_indexer_cert_dir }}"
+    - "{{ wazuh_dashboard_cert_dir }}"
+    - "{{ wazuh_manager_cert_dir }}"
+    - "{{ filebeat_cert_dir }}"
+    - "{{ grafana_cert_dir }}"
+    - "{{ loki_cert_dir }}"
+    - "{{ prometheus_cert_dir }}"
+  no_log: true
+  tags: ["certs"]
+
+###### Client certificates section ######
+
+- name: Generate client keys
+  community.crypto.openssl_privatekey:
+    path: "{{ clients_cert_dir }}/{{ item.hostname }}-key.pem"
+    size: 4096
+    type: RSA
+    mode: "0440"
+  loop: "{{ computers }}"
+  no_log: true
+  tags: ["certs"]
+
+- name: Generate client CSRs
+  community.crypto.openssl_csr:
+    path: "{{ clients_cert_dir }}/{{ item.hostname }}.csr"
+    privatekey_path: "{{ clients_cert_dir }}/{{ item.hostname }}-key.pem"
+    country_name: "{{ country_name }}"
+    state_or_province_name: "{{ state_or_province_name }}"
+    locality_name: "{{ locality_name }}"
+    organization_name: "{{ organization_name }}"
+    common_name: "{{ item.hostname }}"
+    subject_alt_name:
+      - "DNS:{{ item.dns_name }}"
+      - "DNS:{{ item.hostname }}"
+    mode: "0440"
+  loop: "{{ computers }}"
+  no_log: true
+  tags: ["certs"]
+
+- name: Sign client certificates with Root CA
+  community.crypto.x509_certificate:
+    path: "{{ clients_cert_dir }}/{{ item.hostname }}-crt.pem"
+    csr_path: "{{ clients_cert_dir }}/{{ item.hostname }}.csr"
+    ownca_path: "{{ root_ca_dir }}/root-ca.pem"
+    ownca_privatekey_path: "{{ root_ca_key_dir }}/root-ca-key.pem"
+    provider: "ownca"
+    selfsigned_not_after: "+825d"
+    mode: "0440"
+  loop: "{{ computers }}"
+  no_log: true
+  tags: ["certs"]
+
+###### Cleanup section ######
+
+- name: Remove server CSR files
+  ansible.builtin.file:
+    path: "{{ item }}/server.csr"
+    state: "absent"
+  loop:
+    - "{{ wazuh_indexer_cert_dir }}"
+    - "{{ wazuh_dashboard_cert_dir }}"
+    - "{{ filebeat_cert_dir }}"
+    - "{{ loki_cert_dir }}"
+    - "{{ prometheus_cert_dir }}"
+  tags: ["certs"]
+
+- name: Remove client CSR files
+  ansible.builtin.file:
+    path: "{{ clients_cert_dir }}/{{ item.hostname  }}.csr"
+    state: "absent"
+  loop: "{{ computers }}"
+  tags: ["certs"]
+
+- name: Remove root CA CSR files
+  ansible.builtin.file:
+    path: "{{ root_ca_dir }}/root-ca.csr"
+    state: "absent"
+  tags: ["certs"]
+
+###### Environment section ######
+
+- name: Create directory on controller pc for certificates
+  ansible.builtin.file:
+    path: "{{ playbook_dir }}/client_certificates"
+    state: "directory"
+    mode: "0750"
+  delegate_to: localhost
+  become: false
+  tags: ["certs"]
+
+- name: Create directories on controller pc for each client
+  ansible.builtin.file:
+    path: "{{ playbook_dir }}/client_certificates/{{ item.hostname }}"
+    state: "directory"
+    mode: "0750"
+  delegate_to: localhost
+  become: false
+  loop: "{{ computers }}"
+  tags: ["certs"]
+
+- name: Fetch client certificates to controller
+  ansible.builtin.fetch:
+    src: "{{ clients_cert_dir }}/{{ item.hostname }}-crt.pem"
+    dest: "{{ playbook_dir }}/client_certificates/{{ item.hostname }}/"
+    flat: true
+  loop: "{{ computers }}"
+  no_log: true
+  tags: ["certs"]
+
+- name: Fetch client keys to controller
+  ansible.builtin.fetch:
+    src: "{{ clients_cert_dir }}/{{ item.hostname }}-key.pem"
+    dest: "{{ playbook_dir }}/client_certificates/{{ item.hostname }}/"
+    flat: true
+  loop: "{{ computers }}"
+  no_log: true
+  tags: ["certs"]
+
+- name: Fetch root CA to controller
+  ansible.builtin.fetch:
+    src: "{{ root_ca_dir }}/root-ca.pem"
+    dest: "{{ playbook_dir }}/client_certificates/root-ca.pem"
+    flat: true
+  no_log: true
+  tags: ["certs"]
+
+###### SSH keys section ######
+
+- name: Generate SSH keypair on controller
+  community.crypto.openssh_keypair:
+    path: "{{ playbook_dir }}/ssh_keys/{{ item.hostname }}"
+    type: rsa
+    size: 4096
+    state: present
+  delegate_to: localhost
+  become: false
+  loop: "{{ computers }}"
+  tags: ["certs"]

@@ -1,0 +1,124 @@
+- name: Check if Roundcube is already installed
+  ansible.builtin.stat:
+    path: "/usr/share/roundcube/index.php"
+  register: "roundcube_installed"
+  tags: ["roundcube", "install"]
+
+- name: Clean up old installation
+  ansible.builtin.file:
+    path: "/usr/share/roundcube"
+    state: "absent"
+  when: "not roundcube_installed.stat.exists"
+  tags: ["roundcube", "install"]
+
+- name: Ensure target directory exists
+  ansible.builtin.file:
+    path: "/usr/share/roundcube"
+    state: "directory"
+    owner: "www-data"
+    group: "www-data"
+    mode: "0750"
+  tags: ["roundcube", "file"]
+
+- name: Download and extract Roundcube complete archive directly from GitHub
+  ansible.builtin.unarchive:
+    src: "https://github.com/roundcube/roundcubemail/releases/download/1.7.0/roundcubemail-1.7.0-complete.tar.gz"
+    dest: "/usr/share/roundcube"
+    remote_src: yes
+    extra_opts: [--strip-components=1]
+    creates: "/usr/share/roundcube/index.php"
+  tags: ["roundcube", "install"]
+
+- name: Ensure logs and temp directories are writable by webserver
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: "directory"
+    owner: "www-data"
+    group: "www-data"
+    mode: "0750"
+  loop:
+    - "/usr/share/roundcube/logs"
+    - "/usr/share/roundcube/temp"
+  tags: ["roundcube", "file"]
+
+- name: Overwrite config files (templates)
+  ansible.builtin.template:
+    src: "{{ item.source }}"
+    dest: "{{ item.destination }}"
+    owner: "www-data"
+    group: "www-data"
+    mode: "0750"
+  loop:
+    - source: "roundcube.conf.j2"
+      destination: "/usr/share/roundcube/roundcube.conf"
+    - source: "config.inc.php.j2"
+      destination: "/usr/share/roundcube/config/config.inc.php"
+  no_log: true
+  tags: ["roundcube", "file"]
+
+#DISABLED DUE TO QR CODE SCANNING NOT WORKING
+
+# - name: Ensure 2FA plugin target directory exists
+#   ansible.builtin.file:
+#     path: "/usr/share/roundcube/plugins/twofactor_gauthenticator"
+#     state: "directory"
+#     owner: "www-data"
+#     group: "www-data"
+#     mode: "0755"
+#   tags: ["roundcube", "file"]
+
+# - name: Download and inject 2FA plugin directly to web folder
+#   ansible.builtin.unarchive:
+#     src: "https://github.com/alexandregz/twofactor_gauthenticator/archive/refs/heads/master.tar.gz"
+#     dest: "/usr/share/roundcube/plugins/twofactor_gauthenticator"
+#     remote_src: true
+#     extra_opts: [--strip-components=1]
+#   tags: ["roundcube", "install"]
+
+###### Apt section ######
+
+- name: Install dependencies needed for UI
+  ansible.builtin.apt:
+    name: 
+      - "node-less"
+      - "node-clean-css"
+    state: "present"
+  tags: ["roundcube", "install"]
+
+###### Frontend section ######
+
+- name: Compile Roundcube Elastic skin LESS files to minified CSS
+  ansible.builtin.command: "lessc --clean-css styles/{{ item }}.less styles/{{ item }}.min.css"
+  args:
+    chdir: /usr/share/roundcube/skins/elastic
+  loop:
+    - styles
+    - print
+    - embed
+  tags: ["roundcube"]
+
+- name: Update frontend for roundcube
+  ansible.builtin.command:
+    cmd: "php ./updatecss.sh"
+    chdir: "/usr/share/roundcube/bin"
+  tags: ["roundcube"]
+
+###### Config section ######
+
+- name: Overwrite plugins
+  ansible.builtin.template:
+    src: "{{ item.source }}"
+    dest: "{{ item.destination }}"
+    owner: "www-data"
+    group: "www-data"
+    mode: "0750"
+  loop:
+    - source: "managesieve.j2"
+      destination: "/usr/share/roundcube/plugins/managesieve/config.inc.php"
+    - source: "password.j2"
+      destination: "/usr/share/roundcube/plugins/password/config.inc.php"
+#DISABLED FOR 26.04 DUE TO QR CODE SCANNING NOT WORKING
+    # - source: "two-factor.j2"
+    #   destination: "/usr/share/roundcube/plugins/twofactor_gauthenticator/config.inc.php"
+  no_log: true
+  tags: ["roundcube", "file"]

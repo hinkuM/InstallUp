@@ -1,0 +1,22 @@
+#!/bin/bash
+
+kubectl label nodes k8s-slave-01 longhorn=slave --overwrite
+kubectl label nodes k8s-slave-02 longhorn=slave --overwrite
+
+for node_name in k8s-slave-01 k8s-slave-02; do
+  kubectl -n longhorn-system patch nodes.longhorn.io $node_name --type merge -p '
+  {
+    "spec": {
+      "disks": {
+        {% for item in longhorn_disks %}
+        "{{ item.name }}": {
+          "path": "{{ kubernetes_data_path }}/{{ item.path }}",
+          "allowScheduling": true,
+          "storageReserved": 0,
+          "tags": ["{{ item.tag }}"]
+        }{% if not loop.last %},{% endif %}
+        {% endfor %}
+      }
+    }
+  }'
+done

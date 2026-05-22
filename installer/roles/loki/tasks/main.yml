@@ -1,0 +1,57 @@
+###### Apt section ######
+
+- name: Install loki
+  ansible.builtin.apt:
+    name: "{{ loki }}"
+  tags: ["loki", "install"]
+
+###### Config section ######
+
+- name: Overwrite loki config
+  ansible.builtin.template:
+    src: "config.yml.j2"
+    dest: "/etc/loki/config.yml"
+    owner: "root"
+    group: "root"
+    mode: "0644"
+  no_log: true
+  tags: ["loki", "file"]
+
+###### Environment section ######
+
+- name: Set ownership for loki certs
+  ansible.builtin.file:
+    path: "{{ loki_cert_dir }}"
+    owner: "loki"
+    group: "root"
+    recurse: true
+  no_log: true
+  tags: ["loki", "file"]
+
+- name: Create directory
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: "directory"
+    owner: "loki"
+    mode: "0750"
+  loop:
+    - /var/lib/loki
+    - /var/lib/loki/rules
+    - /var/lib/loki/chunks
+    - /var/lib/loki/retention
+  tags: ["loki", "file"]
+
+###### Handler section ######
+
+- name: Restart loki
+  ansible.builtin.service:
+    name: "loki"
+    state: "restarted"
+  tags: ["loki", "handler"]
+
+- name: Enable loki
+  ansible.builtin.service:
+    name: "loki"
+    enabled: true
+  tags: ["loki", "handler"]
+

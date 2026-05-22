@@ -1,0 +1,16 @@
+MilterSocket inet:7357@{{ servers.mail.first }}.{{ domains.main.name }}
+ClamdSocket unix:/var/run/clamav/clamd.ctl
+
+ReadTimeout 300
+MaxFileSize 50M
+
+OnInfected Reject
+OnFail Defer
+OnClean Accept
+
+TemporaryDirectory /var/lib/clamav/tmp
+
+LogFile /var/log/clamav/clamav-milter.log
+LogTime true
+LogFileMaxSize 10M
+LogRotate false

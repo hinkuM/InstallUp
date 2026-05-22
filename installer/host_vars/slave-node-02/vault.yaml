@@ -1,0 +1,13 @@
+#################################
+#                               #
+#        # Comment              #
+#        variable: "value"      #
+#                               #
+#################################
+
+
+####### Credentials #######
+# Password to be set as new root password
+vault_root_password: "plain_text_password"
+# Password for sudo user created at system installation process
+vault_new_admin_password: "plain_text_password"

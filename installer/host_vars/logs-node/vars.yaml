@@ -1,0 +1,24 @@
+#################################
+#                               #
+#        # Comment              #
+#        variable: "value"      #
+#                               #
+#################################
+# All credentials are stored in vault.yaml files which are encrypted using .vault_pass file
+
+
+####### Wazuh server #######
+# Should be set to half of memory currently in pc (RAM)
+half_of_memory: 4
+# Cluster name for connecting multiple instances i think :)
+logs_cluster_name: "random_name_cluster"
+
+####### Certificate #######
+# Country name
+country_name: "EN"
+# State or province name
+state_or_province_name: "random_province"
+# City or locality name
+locality_name: "random_city"
+# Organization name
+organization_name: "example.com"

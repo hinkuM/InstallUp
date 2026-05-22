@@ -1,0 +1,174 @@
+###### Package section ######
+
+- name: Update repositories
+  ansible.builtin.apt:
+    update_cache: true
+  tags: ["system", "install"]
+
+- name: Install/Update basic packages
+  ansible.builtin.apt:
+    name: 
+      - "{{ gnupg }}"
+      - "{{ curl }}"
+      - "{{ wget }}"
+      - "{{ openssh_server }}"
+      - "{{ iptables }}"
+      - "{{ iptables_persistent }}"
+      - "{{ cron }}"
+      - "{{ lsb_release }}"
+      - "{{ ca_certificates }}"
+      - "{{ apt_transport_https }}"
+      - "{{ systemd_timesyncd }}"
+    state: "present"
+  tags: ["system", "install"]
+
+###### System section ######
+
+- name: Disable swap
+  ansible.posix.mount:
+    name: "{{ item }}"
+    fstype: "swap"
+    state: "absent"
+  loop: ["none", "swap"]
+  tags: ["system"]
+
+- name: Force swap off immediately
+  ansible.builtin.command: swapoff -a
+  tags: ["system"]
+  
+- name: Limit systemd journal size to 500M
+  ansible.builtin.lineinfile:
+    path: "/etc/systemd/journald.conf"
+    regexp: "^#?\\s*SystemMaxUse="
+    line: "SystemMaxUse=500M"
+    insertafter: "^\\[Journal\\]"
+    state: "present"
+  tags: ["system"]
+
+- name: Restart journald
+  ansible.builtin.systemd:
+    name: systemd-journald
+    state: restarted
+  tags: ["system"]
+
+- name: Set system timezone
+  community.general.timezone:
+    name: "{{ target_timezone }}"
+  register: tz_change
+  tags: ["system"]
+
+- name: Enable NTP network synchronization
+  ansible.builtin.command: "timedatectl set-ntp true"
+  tags: ["system"]
+
+- name: Force immediate time synchronization sync
+  ansible.builtin.service:
+    name: "systemd-timesyncd"
+    state: "restarted"
+    enabled: true
+  tags: ["system"]
+
+###### Basic directories section ######
+
+- name: Create directory for apt keyrings
+  ansible.builtin.file:
+    path: "/etc/apt/keyrings"
+    state: "directory"
+    mode: "0755"
+  tags: ["system"]
+
+- name: Create directories for certificates
+  ansible.builtin.file:
+    path: "{{ item }}"
+    owner: "root"
+    group: "root"
+    state: "directory"
+    mode: "0555"
+  loop:
+    - "{{ self_certs }}"
+    - "{{ clients_cert_dir }}"
+  tags: ["system"]
+
+###### Users section ######
+
+- name: Ensure group "client_certs" exists
+  ansible.builtin.group:
+    name: "client_certs"
+    state: "present"
+  tags: ["system"]
+
+- name: Copy certificates to this pc
+  ansible.builtin.copy:
+    src: "{{ playbook_dir }}/client_certificates/{{ ansible_hostname }}/{{ ansible_hostname }}-{{item}}"
+    dest: "{{ clients_cert_dir }}/client-{{ item }}"
+    mode: "0640"
+    owner: "root"
+    group: "client_certs"
+  loop: 
+    - "key.pem"
+    - "crt.pem"
+  no_log: true
+  when: "'logs' not in group_names"
+  tags: ["system", "file"]
+
+- name: Copy root CA certificate to this pc
+  ansible.builtin.copy:
+    src: "{{ playbook_dir }}/client_certificates/root-ca.pem"
+    dest: "{{ clients_cert_dir }}/root-ca.pem"
+    mode: "0640"
+    owner: "root"
+    group: "client_certs"
+  no_log: true
+  when: "'logs' not in group_names"
+  tags: ["system", "file"]
+
+###### Users section ######
+
+- name: Change root password
+  ansible.builtin.user:
+    name: "root"
+    password: "{{ root_password | password_hash('sha512') }}"
+  no_log: true
+  tags: ["system"]
+
+# - name: Create the admin user
+#   ansible.builtin.user:
+#     name: "{{ new_admin_user }}"
+#     shell: "/bin/bash"
+#     groups: "sudo"
+#     append: "yes"
+#     password: "{{ new_admin_password | password_hash('sha512') }}"
+#   no_log: true
+#   tags: ["system"]
+
+###### Backup section (only logs group) ######
+
+- name: Install nfs for kubernetes users' files backup
+  ansible.builtin.apt:
+    name: "{{ nfs_common }}"
+    state: "present"
+  when: "'logs' in group_names"
+  tags: ["system"]
+
+- name: Create the backup user
+  ansible.builtin.user:
+    name: "{{ backup_user }}"
+    shell: "/bin/sh"
+    password: "{{ backup_password | password_hash('sha512') }}"
+  when: "'logs' in group_names"
+  no_log: true
+  tags: ["system"]
+
+- name: Create backup directories
+  ansible.builtin.file:
+    path: 
+      - "{{ backup_dir }}"
+      - "{{ backup_keys_dir }}"
+      - "{{ backup_user_data_dir }}"
+      - "{{ backup_mail_dir }}"
+    owner: "{{ backup_user }}"
+    group: "{{ backup_user }}"
+    state: "directory"
+    mode: "0640"
+  when: "'logs' in group_names"
+  tags: ["system"]

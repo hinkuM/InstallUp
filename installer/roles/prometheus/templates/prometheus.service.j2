@@ -1,0 +1,22 @@
+[Unit]
+Description=Prometheus Server
+Documentation=https://prometheus.io/docs/introduction/overview/
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=prometheus
+Group=prometheus
+Restart=on-failure
+ExecStart=/opt/prometheus/prometheus \
+  --config.file=/opt/prometheus/prometheus.yaml \
+  --storage.tsdb.path=/opt/prometheus/data \
+  --storage.tsdb.retention.time=30d \
+  --web.console.templates=/opt/prometheus/consoles \
+  --web.console.libraries=/opt/prometheus/console_libraries \
+  --web.enable-remote-write-receiver \
+  --web.listen-address=0.0.0.0:9090 \
+  --web.config.file=/opt/prometheus/web-config.yaml
+
+[Install]
+WantedBy=multi-user.target

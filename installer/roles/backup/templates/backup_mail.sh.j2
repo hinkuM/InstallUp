@@ -1,0 +1,37 @@
+#!/bin/bash
+DATE=$(date +%F)
+BACKUP_DIR="/tmp"
+
+GPG_RECIPIENT="{{ roundcube_db_username }}"
+
+MAILDIR="{{ mail_path }}/"
+
+DEST_LOGIN="{{ backup_user }}"
+# SSH_KEY="$HOME/.ssh/logs_rsa" # change it to backup user only
+DEST_SERVER="{{ servers.logs.first }}.{{ domains.main.name }}"
+DEST_DIR="{{ backup_keys_dir }}"
+
+MAIL_FILE="$BACKUP_DIR/mail_$DATE.tar.gz.gpg"
+LOG_FILE="/var/log/files_backup.log"
+
+tar --exclude='dovecot.index*' \
+    --exclude='dovecot.list.index*' \
+    --exclude='dovecot.mailbox.log' \
+    --exclude='tmp' \
+    -czf - "$MAILDIR" | \
+    gpg --encrypt --recipient "$GPG_RECIPIENT" --trust-model always > "$MAIL_FILE"
+
+if [ -f "$MAIL_FILE" ]; then
+    BYTES=$(stat -c %s "$MAIL_FILE")
+else
+    echo "backup: mails, action: failed, creation error, Backup file was not created." >> "$LOG_FILE"
+    exit 1
+fi
+
+if scp -i "$SSH_KEY" -o StrictHostKeyChecking=accept-new "$MAIL_FILE" "$DEST_LOGIN@$DEST_SERVER:$DEST_DIR/"; then
+    echo "backup: mails, action: successful, transferred: $BYTES, date: $(date '+%Y-%m-%d %H:%M:%S')" >> "$LOG_FILE"
+    rm "$BACKUP_FILE"
+else
+    echo "backup: mails, action: failed, transfer error, date: $(date '+%Y-%m-%d %H:%M:%S')" >> "$LOG_FILE"
+    exit 1
+fi

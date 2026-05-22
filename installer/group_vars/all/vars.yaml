@@ -1,0 +1,164 @@
+#################################
+#                               #
+#        # Comment              #
+#        variable: "value"      #
+#                               #
+#################################
+# All credentials are stored in vault.yaml files which are encrypted using .vault_pass file
+
+
+####### Time #######
+# Name of the time zone (can be listed using this command on ubuntu timedatectl list-timezones)
+target_timezone: "Europe/Warsaw"
+
+####### Wazuh #######
+# Password used to join agent to main server
+wazuh_join_password: "{{ vault_wazuh_join_password }}"
+# List of groups that will be created on wazuh server 
+# Possible to extend but requires new template file in installer/roles/wazuh_manager/templates/new_name.j2 with rules
+wazuh_groups: 
+  - "mail"
+  - "kubernetes"
+  - "firewall"
+
+####### Network #######
+# Dictionary of domains
+# Easier to refer to rather than array
+# Adding new domains requires you to change installer/roles/mysql/templates/mail.sql.j2 line 40
+# name    - domain name
+# filter  - domain but with little changes, for regex to see "." as "." not wildcard 
+domains:
+  main:
+    name: "example.com"
+    filter: "example\\.com"
+  second:
+    name: "domain.com"
+    filter: "domain\\.com"
+#  third:
+#    name: 
+#    filter: 
+
+# Dictionary of computers used in configuration, divided into groups, array of computers is in installer/group_vars/logs/vars.yaml
+# Easier to refer to rather than array, adding new entries here needs update in "computers" array in installer/group_vars/logs/vars.yaml
+# first - computer's hostname 
+servers:
+  firewall:
+    first: "firewall_host"
+  logs:
+    first: "logs_host"
+  mail:
+    first: "mail_host"
+  master:
+    first: "master_host"
+#    second: "example_hostname"
+  slave:
+    first: "slave_01_host"
+    second: "slave_02_host"
+    
+# Port used by ssh to accept connection on
+ssh_port: "4545"
+# Port used by ansible to connecto to hosts by SSH
+ansible_port: "{{ ssh_port }}"
+
+####### Certificate and mail information #######
+# List of values needed to setup each domain in mail server as well as to create nginx https servers with certificates using certbot
+# Possible to add new entries but wasn't tested and it was all configurated for only ONE public IP so only domains.main.name will be bind to IP (rDNS), can be set in installer/host_vars/mail-node/vars.yaml
+# cert_domain   - name of subdomain used later for accessing mail website and generating certificate
+# domain        - name of the domain
+# mail          - mail used for certbot certificate creation
+# token         - this configuration uses cloudflare tokens (permissions needed:	Zone.Zone, Zone.DNS) to auto renew certificates
+# filename      - name of file where cloudflare token is stored (NOT PATH)
+# filter        - domain but with little changes, for regex to see "." as "." not wildcard 
+# public_ip     - binds this address to specific domain in mail server (for rDNS to work)
+# postfix_name  - random name so mail server's scripts can refer to entries in master.cf, unique for each domain
+# dkim_selector - DKIM name which was used in cert_domain, later used to create DNS entries on domain provider website and verify your ownership of domain
+cert_and_mail_data:
+  - cert_domain: "mail.{{ domains.main.name }}"
+    domain: "{{ domains.main.name }}"
+    mail: "your@email.com"
+    token: "{{ vault_cloudflare_tokens.main }}"
+    filename: "cloudflare_main_domain.ini"
+    filter: "{{ domains.main.filter }}"
+    public_ip: 17.66.55.123
+    postfix_name: smtp_example_one
+    dkim_selector: mail
+  - cert_domain: "poczta.{{ domains.second.name }}" # poczta = mail (different language)
+    domain: "{{ domains.second.name }}"
+    mail: "your@email.com"
+    token: "{{ vault_cloudflare_tokens.second }}"
+    filename: "cloudflare_second_domain.ini"
+    filter: "{{ domains.second.filter }}"
+    public_ip: 17.66.55.123 # can differ
+    postfix_name: smtp_example_two
+    dkim_selector: poczta  # poczta = mail (different language)
+
+####### Paths to important directories #######
+# Main directory for backups on logs server
+backup_dir: "/backups_dir"
+# Subdirectory for specific group of hosts (keys group)
+backup_keys_dir: "{{ backup_dir }}/keys_dir"
+# Currently not in use
+backup_user_data_dir: "{{ backup_dir }}/users_dir"
+# Subdirectory for backup of all mails (mail group)
+backup_mail_dir: "{{ backup_dir }}/mail_dir"
+# Directory where all self signed certificates are
+self_certs: "/etc/selfsigned_certificates"
+# Directory for root-ca.pem (public)
+root_ca_dir: "{{ self_certs }}"
+# Directory for root-ca-key.pem (private)
+root_ca_key_dir: "{{ self_certs }}/key_dir"
+# Directory for all client certificates to be copied to different computers
+clients_cert_dir: "{{ self_certs }}/clients_dir"
+
+####### Backup user #######
+# User in charge of backups on logs server
+backup_user: "backup_user_example"
+# Password for that user (all credentials stored in vaults)
+backup_password: "{{ vault_backup_password }}"
+
+#/\/\/\/\/\/\//\/\/\/\/\/\//\/\/\/\/\/\//\/\/\/\/\/\//\/\/\/\/\/\//\/\/\/\/\/\/#
+
+####### Packages #######
+# Below are packages used by all groups
+# apt install is using values below
+
+
+#versions for all
+gnupg: "gnupg"
+curl: "curl"
+wget: "wget"
+openssh_server: "openssh-server"
+iptables: "iptables"
+iptables_persistent: "iptables-persistent"
+cron: "cron"
+lsb_release: "lsb-release"
+ca_certificates: "ca-certificates"
+apt_transport_https: "apt-transport-https"
+
+#alloy
+alloy: "alloy"
+
+#logrotate
+logrotate: "logrotate"
+
+#certbot
+gcc: "gcc"
+libaugeas_dev: "libaugeas-dev"
+python: "python3"
+python_dev: "{{ python }}-dev"
+python_venv: "{{ python }}-venv"
+
+#MySQL
+mysql_server: "mysql-server"
+python_pip: "{{ python }}-pip"
+pymysql: "{{ python }}-pymysql"
+pexpect: "{{ python }}-pexpect"
+
+#PHP
+php_version: "{{ 'php8.5' if (ansible_distribution_major_version == '26') else 'php8.3' }}"
+
+#NFS for kubernetes backup
+nfs_common: "nfs-common"
+
+#Misc
+acl: "acl"

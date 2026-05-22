@@ -1,0 +1,41 @@
+###### Apt section ######
+
+- name: Update repositories
+  ansible.builtin.apt:
+    update_cache: true
+  tags: ["roundcube", "install"]
+
+- name: Install Roundcube and needed packages and plugins
+  ansible.builtin.apt:
+    name: 
+      - "{{ debconf_utils }}"
+      - "{{ aspell }}"
+      - "{{ aspell_pl }}"
+      - "{{ php_pspell }}"
+      - "{{ composer }}"
+    state: "present"
+  tags: ["roundcube", "install"]
+
+- name: Update PEAR channels
+  ansible.builtin.command: "pear channel-update pear.php.net"
+  tags: ["roundcube", "install"]
+
+- name: Force upgrade PEAR core to handle PHP 8.x
+  ansible.builtin.command: "pear upgrade --force PEAR"
+  tags: ["roundcube", "install"]
+
+###### Different version ######
+
+- name: Install roundcube for ubuntu 24
+  ansible.builtin.import_tasks:
+    file: "noble.yaml"
+  when: "ansible_distribution_major_version == '24'"
+  tags: ["roundcube"]
+
+
+# NOT RECOMMENDED
+- name: Install roundcube for ubuntu 26
+  ansible.builtin.import_tasks:
+    file: "resolute.yaml"
+  when: "ansible_distribution_major_version == '26'"
+  tags: ["roundcube"]

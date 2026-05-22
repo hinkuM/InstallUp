@@ -1,0 +1,33 @@
+
+ssl = {{ dovecot_ssl }}
+
+
+{% if ansible_distribution_major_version == '24' %}
+ssl_cert = </etc/letsencrypt/live/{{ cert_and_mail_data[0].cert_domain }}/fullchain.pem
+ssl_key = </etc/letsencrypt/live/{{ cert_and_mail_data[0].cert_domain }}/privkey.pem
+
+{% for item in cert_and_mail_data %}
+local_name {{ item.cert_domain }} {
+  ssl_cert = </etc/letsencrypt/live/{{ item.cert_domain }}/fullchain.pem
+  ssl_key = </etc/letsencrypt/live/{{ item.cert_domain }}/privkey.pem
+}
+
+{% endfor %}
+ssl_dh = </usr/share/dovecot/dh.pem
+{% endif %}
+
+
+{% if ansible_distribution_major_version == '26' %}
+ssl_server_cert_file = /etc/letsencrypt/live/{{ cert_and_mail_data[0].cert_domain }}/fullchain.pem
+ssl_server_key_file = /etc/letsencrypt/live/{{ cert_and_mail_data[0].cert_domain }}/privkey.pem
+
+{% for item in cert_and_mail_data %}
+local_name {{ item.cert_domain }} {
+  ssl_server_cert_file = /etc/letsencrypt/live/{{ item.cert_domain }}/fullchain.pem
+  ssl_server_key_file = /etc/letsencrypt/live/{{ item.cert_domain }}/privkey.pem
+}
+
+{% endfor %}
+
+ssl_server_dh_file = /usr/share/dovecot/dh.pem
+{% endif %}

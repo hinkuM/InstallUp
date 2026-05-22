@@ -1,0 +1,37 @@
+###### Apt section ######
+
+- name: Install fail2ban
+  ansible.builtin.apt:
+    name: "{{ fail2ban }}"
+  tags: ["fail2ban", "install"]
+
+###### Config section ######
+
+- name: Overwrite the main.cf
+  ansible.builtin.copy:
+    src: "jail.local"
+    dest: "/etc/fail2ban/jail.local"
+    owner: "root"
+    group: "root"
+    mode: "0644"
+  tags: ["fail2ban", "file"]
+
+###### Handler section ######
+
+- name: Restart nginx
+  ansible.builtin.service:
+    name: "nginx"
+    state: "restarted"
+  tags: ["fail2ban"]
+
+- name: Enable fail2ban
+  ansible.builtin.service:
+    name: "fail2ban"
+    enabled: true
+  tags: ["fail2ban", "handler"]
+
+- name: Restart fail2ban
+  ansible.builtin.service:
+    name: "fail2ban"
+    state: "restarted"
+  tags: ["fail2ban", "handler"]

@@ -1,0 +1,84 @@
+/var/log/mail.log
+/var/log/dovecot.log
+/var/log/dovecot-debug.log
+/var/log/fail2ban.log {
+    daily
+    rotate 4
+    missingok
+    compress
+    delaycompress
+    create 0640 root adm
+    sharedscripts
+    postrotate
+        /usr/bin/systemctl reload postfix > /dev/null 2>&1 || true
+        /usr/bin/systemctl reload dovecot > /dev/null 2>&1 || true
+    endscript
+}
+
+/var/log/{{ php_version }}-fpm.log {
+    weekly
+    rotate 2
+    missingok
+    compress
+    delaycompress
+    create 0640 root adm
+    sharedscripts
+    postrotate
+        /usr/bin/systemctl reload {{ php_version }}-fpm > /dev/null 2>&1 || true
+    endscript
+}
+
+/var/log/mysql/error.log {
+    weekly
+    rotate 2
+    missingok
+    compress
+    delaycompress
+    create 0640 mysql adm
+}
+
+/var/log/redis/redis-server.log {
+    weekly
+    rotate 2
+    missingok
+    compress
+    delaycompress
+    copytruncate
+    create 0640 redis adm
+}
+
+/var/log/letsencrypt/letsencrypt.log {
+    monthly
+    rotate 2
+    missingok
+    compress
+    copytruncate
+    create 0640 root adm
+}
+
+/var/log/nginx/*.log
+/var/log/roundcube/*.log {
+    weekly
+    rotate 4
+    missingok
+    compress
+    delaycompress
+    create 0640 www-data adm
+    sharedscripts
+    postrotate
+        /usr/bin/systemctl reload nginx > /dev/null 2>&1 || true
+    endscript
+}
+
+/var/log/rspamd/rspamd.log {
+    daily
+    rotate 14
+    missingok
+    compress
+    delaycompress
+    create 0640 _rspamd adm
+    sharedscripts
+    postrotate
+        /usr/bin/systemctl reload rspamd > /dev/null 2>&1 || true
+    endscript
+}

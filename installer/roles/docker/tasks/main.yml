@@ -1,0 +1,69 @@
+###### Repository section ######
+
+- name: Check if containerd.io is already installed
+  ansible.builtin.package_facts:
+    manager: "auto"
+  tags: ["docker", "install"]
+
+- name: Download docker GPG key
+  ansible.builtin.get_url:
+    url: "https://download.docker.com/linux/ubuntu/gpg"
+    dest: "/etc/apt/keyrings/docker.asc"
+    mode: "0644"
+    force: false
+  when: "'containerd.io' not in ansible_facts.packages"
+  tags: ["docker", "install"]
+
+- name: Add docker apt repository
+  ansible.builtin.apt_repository:
+    repo: "deb [signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu {{ ansible_distribution_release }} stable"
+    state: "present"
+    filename: "docker.list"
+  when: "'containerd.io' not in ansible_facts.packages"
+  tags: ["docker", "install"]
+
+###### Apt section ######
+
+- name: Update apt cache
+  ansible.builtin.apt:
+    update_cache: true
+  tags: ["docker", "install"]
+
+- name: Install containerd.io
+  ansible.builtin.apt:
+    name: 
+      - "{{ containerd }}"
+      - "{{ bash_completion }}"
+  tags: ["docker", "install"]
+
+- name: Remove docker repository
+  ansible.builtin.apt_repository:
+    repo: "deb [signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu {{ ansible_distribution_release }} stable"
+    state: "absent"
+    filename: "kubernetes"
+  tags: ["kubernetes", "install"]
+
+###### Config section ######
+
+- name: Change config file for containerd
+  ansible.builtin.copy:
+    src: "config.toml"
+    dest: "/etc/containerd/config.toml"
+    owner: "root"
+    group: "root"
+    mode: "0640"
+  tags: ["docker", "file"]
+
+###### Handler section ######
+
+- name: Restart containerd
+  ansible.builtin.service:
+    name: "containerd"
+    state: "restarted"
+  tags: ["docker", "handler"]
+
+- name: Enable containerd
+  ansible.builtin.service:
+    name: "containerd"
+    enabled: true
+  tags: ["docker", "handler"]

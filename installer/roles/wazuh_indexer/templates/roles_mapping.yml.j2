@@ -1,0 +1,28 @@
+---
+_meta:
+  type: "rolesmapping"
+  config_version: 2
+
+all_access:
+  reserved: true
+  backend_roles: ["admin"]
+
+kibana_user:
+  reserved: false
+  backend_roles:
+  - "kibana_user"
+
+readall:
+  reserved: true
+  backend_roles:
+  - "readall"
+
+kibana_server:
+  reserved: true
+  users:
+  - "kibanaserver"
+
+manage_wazuh_index:
+  reserved: true
+  users:
+  - "kibanaserver"

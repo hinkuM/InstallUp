@@ -1,0 +1,81 @@
+###### Repository section ######
+
+- name: Check if grafana is already installed
+  ansible.builtin.package_facts:
+    manager: "auto"
+  tags: ["grafana", "install"]
+
+- name: Download official Grafana GPG key cleanly as an armored file
+  ansible.builtin.get_url:
+    url: "https://apt.grafana.com/gpg-full.key"
+    dest: "/etc/apt/keyrings/grafana.asc"
+    mode: "0644"
+  when: "'grafana' not in ansible_facts.packages"
+  tags: ["grafana", "install"]
+
+- name: Add Grafana apt repository
+  ansible.builtin.apt_repository:
+    repo: "deb [signed-by=/etc/apt/keyrings/grafana.asc] https://apt.grafana.com stable main"
+    state: "present"
+    filename: "grafana"
+  when: "'grafana' not in ansible_facts.packages"
+  tags: ["grafana", "install"]
+
+###### Apt section ######
+
+- name: Update apt cache
+  ansible.builtin.apt:
+    update_cache: true
+  when: "'grafana' not in ansible_facts.packages"
+  tags: ["grafana", "install"]
+
+- name: Install grafana
+  ansible.builtin.apt:
+    name: "{{ grafana }}"
+  when: "'grafana' not in ansible_facts.packages"
+  tags: ["grafana", "install"]
+
+###### Config section ######
+
+- name: Set ownership for grafana certs
+  ansible.builtin.file:
+    path: "{{ grafana_cert_dir }}"
+    owner: "root"
+    group: "grafana"
+    recurse: true
+  no_log: true
+  tags: ["grafana", "file"]
+
+- name: Overwrite grafana config
+  ansible.builtin.template:
+    src: "grafana.ini.j2"
+    dest: "/etc/grafana/grafana.ini"
+    owner: "root"
+    group: "grafana"
+    mode: "0644"
+  no_log: true
+  tags: ["grafana", "file"]
+
+- name: Add grafana data sources
+  ansible.builtin.template:
+    src: "datasource.yaml.j2"
+    dest: "/etc/grafana/provisioning/datasources/ansible_managed.yaml"
+    owner: "root"
+    group: "grafana"
+    mode: "0644"
+  no_log: true
+  tags: ["grafana", "file"]
+
+###### Handler section ######
+
+- name: Enable Grafana Server
+  ansible.builtin.service:
+    name: "grafana-server"
+    enabled: true
+  tags: ["grafana", "handler"]
+
+- name: Restart Grafana Server
+  ansible.builtin.service:
+    name: "grafana-server"
+    state: "restarted"
+  tags: ["grafana", "handler"]

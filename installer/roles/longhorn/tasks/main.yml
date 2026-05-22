@@ -1,0 +1,63 @@
+###### Apt section ######
+
+- name: Install packages needed for longhorn
+  ansible.builtin.apt:
+    name: 
+      - "{{ open_iscsi }}"
+      - "{{ nfs_common }}"
+      - "{{ gawk }}"
+      - "{{ util_linux }}"
+      - "{{ cryptsetup }}"
+      - "{{ dmsetup }}"
+  tags: ["longhorn", "install"]
+
+###### Handler section ######
+
+- name: Restart iscsid
+  ansible.builtin.service:
+    name: "iscsid"
+    state: "restarted"
+  tags: ["longhorn", "handler"]
+
+- name: Enable iscsid
+  ansible.builtin.service:
+    name: "iscsid"
+    enabled: true
+  tags: ["longhorn", "handler"]
+
+###### Config section ######
+
+- name: Blacklist disk names from longhorn
+  ansible.builtin.copy:
+    src: "multipath.conf"
+    dest: "/etc/multipath.conf"
+    owner: "root"
+    group: "{{ new_admin_user }}"
+    mode: "0640"
+  tags: ["longhorn", "file"]
+
+###### Handler section ######
+
+- name: Stop multipathd.service
+  ansible.builtin.service:
+    name: "multipathd.service"
+    state: "stopped"
+  tags: ["longhorn", "handler"]
+
+- name: Disable multipathd.service
+  ansible.builtin.service:
+    name: "multipathd.service"
+    enabled: false
+  tags: ["longhorn", "handler"]
+
+- name: Stop multipathd.socket
+  ansible.builtin.service:
+    name: "multipathd.socket"
+    state: "stopped"
+  tags: ["longhorn", "handler"]
+
+- name: Disable multipathd.socket
+  ansible.builtin.service:
+    name: "multipathd.socket"
+    enabled: false
+  tags: ["longhorn", "handler"]

@@ -1,0 +1,41 @@
+###### Apt section ######
+
+- name: Install openssh server
+  ansible.builtin.apt:
+    name: "{{ openssh_server }}"
+  tags: ["ssh", "install"]
+
+###### Key section ######
+
+- name: Set authorized key taken from file
+  ansible.posix.authorized_key:
+    user: "{{ new_admin_user }}"
+    state: present
+    key: "{{ lookup('file', playbook_dir ~ '/ssh_keys/' ~ ansible_hostname ~ '.pub') }}"
+    exclusive: false
+  tags: ["ssh"]
+
+###### Config section ######
+
+- name: Overwrite the main.cf
+  ansible.builtin.template:
+    src: "main.conf.j2"
+    dest: "/etc/ssh/sshd_config.d/main.conf"
+    owner: "root"
+    group: "root"
+    mode: "0644"
+  tags: ["ssh", "file"]
+
+###### Handler section ######
+
+- name: Enable openssh server
+  ansible.builtin.service:
+    name: "ssh"
+    enabled: true
+  tags: ["ssh", "handler"]
+
+- name: Restart openssh server
+  ansible.builtin.service:
+    name: "ssh"
+    state: restarted
+  tags: ["ssh", "handler"]

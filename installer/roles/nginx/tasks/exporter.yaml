@@ -1,0 +1,61 @@
+###### Environment section ######
+
+- name: Add the user exporter
+  ansible.builtin.user:
+    name: "exporter"
+    shell: "/usr/sbin/nologin"
+  tags: ["nginx"]
+
+- name: Create a directory for nginx_exporter
+  ansible.builtin.file:
+    path: "/opt/nginx_exporter"
+    state: "directory"
+    recurse: true
+    owner: "exporter"
+    group: "exporter"
+    mode: "0750"
+  tags: ["nginx"]
+
+###### Install section ######
+
+- name: Downloading and extracting nginx_exporter
+  ansible.builtin.unarchive:
+    src: "https://github.com/nginx/nginx-prometheus-exporter/releases/download/v1.5.1/nginx-prometheus-exporter_1.5.1_linux_amd64.tar.gz"
+    dest: "/opt/nginx_exporter"
+    remote_src: true
+    owner: "exporter"
+    group: "exporter"
+    creates: "/opt/nginx_exporter/nginx-prometheus-exporter"
+    mode: "0740"
+  tags: ["nginx", "install"]
+
+###### Config section ######
+
+- name: Copy templates to pc
+  ansible.builtin.template:
+    src: "nginx_exporter.service.j2"
+    dest: "/etc/systemd/system/nginx_exporter.service"
+    owner: "root"
+    group: "exporter"
+    mode: "0740"
+  tags: ["nginx"]
+
+###### Handler section ######
+
+- name: Force systemd to reread configs
+  ansible.builtin.systemd:
+    daemon_reload: true
+  tags: ["nginx", "handler"]
+
+- name: Reload service nginx_exporter
+  ansible.builtin.systemd:
+    name: "nginx_exporter"
+    state: "restarted"
+  tags: ["nginx", "handler"]
+
+- name: Enable service nginx_exporter
+  ansible.builtin.systemd:
+    name: "nginx_exporter"
+    enabled: true
+  tags: ["nginx", "handler"]
+  

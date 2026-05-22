@@ -1,0 +1,179 @@
+###### Apt section ######
+
+- name: Install mysql-server, pip PyMySQL, Pexpect
+  ansible.builtin.apt:
+    name: 
+      - "{{ mysql_server }}"
+      - "{{ python_pip }}"
+      - "{{ pymysql }}"
+      - "{{ pexpect }}"
+  tags: ["mysql", "install"]
+
+###### Config section ######
+
+- name: Activation magic
+  ansible.builtin.expect:
+    command: "mysql_secure_installation"
+    responses: 
+      'Press y|Y for Yes, any other key for No:': 'y'
+      'Please enter 0 = LOW, 1 = MEDIUM and 2 = STRONG:': '2'
+      'Remove anonymous users? (Press y|Y for Yes, any other key for No)': 'y'
+      'Disallow root login remotely? (Press y|Y for Yes, any other key for No) :': 'y'
+      'Remove test database and access to it? (Press y|Y for Yes, any other key for No) :': 'y'
+      'Reload privilege tables now? (Press y|Y for Yes, any other key for No) :': 'y'
+    timeout: 1
+    creates: "/var/lib/mysql/secure_installation.marker"
+  tags: ["mysql", "once"]
+  register: security_mysql_result
+
+- name: Set the root password (ubuntu 24)
+  community.mysql.mysql_user:
+    name: "root"
+    password: "{{ mysql_root_password }}"
+    login_unix_socket: /run/mysqld/mysqld.sock
+    check_implicit_admin: true
+    state: "present"
+  when: 
+    - security_mysql_result.changed
+    - "ansible_distribution_major_version == '24'"
+  no_log: true
+  tags: ["mysql", "once"]
+
+- name: Set the root password (ubuntu 26)
+  ansible.builtin.command: >
+    mysql -u root --execute="ALTER USER 'root'@'localhost' IDENTIFIED WITH {{ mysql_auth_plugin }} BY '{{ mysql_root_password }}'; FLUSH PRIVILEGES;"
+  vars:
+    mysql_auth_plugin: "caching_sha2_password"
+  when: 
+    - security_mysql_result.changed
+    - "ansible_distribution_major_version == '26'"
+  no_log: true
+  tags: ["mysql", "once"]
+
+- name: Overwrite config file mariadb.cnf 
+  ansible.builtin.copy:
+    src: "mariadb.cnf"
+    dest: "/etc/mysql/mariadb.cnf"
+    owner: "root"
+    group: "root"
+    mode: "0644"
+  tags: ["mysql", "file"]
+
+- name: Create marker file after successful initialization
+  ansible.builtin.file:
+    path: "/var/lib/mysql/secure_installation.marker"
+    state: "touch"
+    owner: "mysql"
+    group: "mysql"
+    mode: "0640"
+  when: security_mysql_result.changed
+  tags: ["mysql", "once"]
+
+- name: Create databases
+  community.mysql.mysql_db:
+    name: "{{ item.name }}"
+    state: "present"
+    login_user: "root"
+    login_password: "{{ mysql_root_password }}"
+  loop: "{{ databases }}"
+  no_log: true
+  tags: ["mysql", "once"]
+
+- name: Copy database dump file
+  ansible.builtin.template:
+    src: "{{ item.name }}.sql.j2"
+    dest: "/tmp/{{ item.name }}.sql"
+  loop: "{{ databases }}"
+  when: "item.import | default(false) | bool"
+  no_log: true
+  tags: ["mysql", "file"]
+
+- name: Restore database
+  community.mysql.mysql_db:
+    name: "{{ item.name }}"
+    login_user: "root"
+    login_password: "{{ mysql_root_password }}"
+    state: "import"
+    target: "/tmp/{{ item.name }}.sql"
+  loop: "{{ databases }}"
+  when: 
+    - "item.import | default(false) | bool"
+  no_log: true
+  tags: ["mysql", "once"]
+
+- name: Create MySQL users (ubuntu 24)
+  community.mysql.mysql_user:
+    name: "{{ item.username }}"
+    password: "{{ item.password }}"
+    priv: "{{ item.name }}.*:ALL" 
+    host: "localhost"
+    state: "present"
+    plugin: "mysql_native_password"
+    login_user: "root"
+    login_password: "{{ mysql_root_password }}"
+  loop: "{{ databases }}"
+  no_log: true
+  when: "ansible_distribution_major_version == '24'"
+  tags: ["mysql", "once"]
+
+- name: Create MySQL users (ubuntu 26)
+  ansible.builtin.command: >
+    mysql -u root -p'{{ mysql_root_password }}' --execute="
+    CREATE USER IF NOT EXISTS '{{ item.username }}'@'localhost' IDENTIFIED WITH {{ mysql_auth_plugin }} BY '{{ item.password }}';
+    ALTER USER '{{ item.username }}'@'localhost' IDENTIFIED WITH {{ mysql_auth_plugin }} BY '{{ item.password }}';
+    GRANT ALL PRIVILEGES ON `{{ item.name }}`.* TO '{{ item.username }}'@'localhost';
+    FLUSH PRIVILEGES;"
+  vars:
+    mysql_auth_plugin: "caching_sha2_password"
+  when: "ansible_distribution_major_version == '26'"
+  loop: "{{ databases }}"
+  # no_log: true
+  tags: ["mysql", "once"]
+
+- name: Cleanup temporary SQL files
+  ansible.builtin.file:
+    path: "/tmp/{{ item.name }}.sql"
+    state: absent
+  loop: "{{ databases }}"
+  when: "item.import | default(false) | bool"
+  no_log: true
+  tags: ["mysql", "once"]
+
+- name: Check if Roundcube tables exist
+  ansible.builtin.command: >
+    mysql -u root -p{{ mysql_root_password }} --batch --skip-column-names 
+    -e "SHOW TABLES FROM {{ item.name }} LIKE 'users';"
+  register: table_check
+  changed_when: false
+  loop: "{{ databases }}"
+  when: "item.roundcube | default(false) | bool"
+  no_log: true
+  tags: ["mysql"]
+
+- name: Populate Roundcube database
+  community.mysql.mysql_db:
+    name: "{{ item.name }}"
+    state: "import"
+    target: "/usr/share/roundcube/SQL/mysql.initial.sql"
+    login_user: "root"
+    login_password: "{{ mysql_root_password }}"
+  loop: "{{ databases }}"
+  when: 
+    - "item.roundcube | default(false) | bool"
+    - "table_check.results | selectattr('item.name', 'equalto', item.name) | map(attribute='stdout') | first == ''"
+  no_log: true
+  tags: ["mysql", "once"]
+
+###### Handler section ######
+
+- name: Restart MySQL
+  ansible.builtin.service:
+    name: "mysql"
+    state: "restarted"
+  tags: ["mysql", "handler"]
+
+- name: Enable MySQL
+  ansible.builtin.service:
+    name: "mysql"
+    enabled: true
+  tags: ["mysql", "handler"]

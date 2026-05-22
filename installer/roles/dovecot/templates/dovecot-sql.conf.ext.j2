@@ -1,0 +1,8 @@
+driver = mysql
+connect = host=127.0.0.1 dbname={{ db_name }} user={{ db_username }} password={{ db_password }}
+
+default_pass_scheme = SHA512-CRYPT
+
+password_query = SELECT username, {{ db_table_domains }}.domain, password FROM {{ db_table_users }} INNER JOIN {{ db_table_domains }} ON {{ db_table_domains }}.id_domain = {{ db_table_users }}.domain WHERE (CONCAT(username, '@', {{ db_table_domains }}.domain) = '%u') AND active = 'Y';
+iterate_query = SELECT CONCAT({{ db_table_users }}.username, '@', {{ db_table_domains }}.domain) as user FROM {{ db_table_users }} INNER JOIN {{ db_table_domains }} ON {{ db_table_domains }}.id_domain = {{ db_table_users }}.domain WHERE active = 'Y';
+user_query = SELECT CONCAT('maildir:{{ mail_path }}/', {{ db_table_domains }}.domain, '/', {{ db_table_users }}.username) as mail, 5000 as uid, 5000 as gid FROM {{ db_table_users }} INNER JOIN {{ db_table_domains }} ON {{ db_table_domains }}.id_domain = {{ db_table_users }}.domain WHERE (CONCAT(username, '@', {{ db_table_domains }}.domain) = '%u') AND active = 'Y';

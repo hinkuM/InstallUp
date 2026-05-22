@@ -1,0 +1,85 @@
+#################################
+#                               #
+#        # Comment              #
+#        variable: "value"      #
+#                               #
+#################################
+# All credentials are stored in vault.yaml files which are encrypted using .vault_pass file
+
+
+####### Kubernetes #######
+# Version which will be used to install all kubernetes related packages
+kubernetes_version: "v1.35"
+# Specific release of the version above
+kubernetes_full_version: "v1.35.2"
+# FQDN of master pc/control plane in kubernetes network
+control_plane: "{{ servers.master.first }}.{{ domains.main.name }}"
+# IP of master pc/control plane in kubernetes network (must have)
+control_plane_ip: "192.168.6.24"
+# Pool of IP addresses for load balancer to use when exposing inner applications to outside of k8s cluster
+ip_pool_load_balancer:
+  - "192.168.6.115-192.168.6.120"
+
+####### Paths to important directories #######
+# Directory on each pc in kubernetes network for all related to k8s stuff
+kubernetes_stuff_path: "/kubernetes"
+# Directory where disk for longhorn should be mounted
+kubernetes_data_path: "{{ kubernetes_stuff_path }}/longhorn-data"
+# Directory for all manifests (user's application etc)
+kubernetes_manifests_path: "{{ kubernetes_stuff_path }}/manifests"
+# Directory with all docker images stored localy, used by skopeo (local image registry)
+docker_images_dir: "{{ kubernetes_stuff_path }}/docker_images"
+
+####### Wazuh #######
+# Wazuh's group to which all pcs in kubernetes network should be added
+wazuh_group: "kubernetes"
+
+####### Wazuh #######
+# List of disk groups that longhorn creates so later user can just mount disk to specific folder
+# You can freely add new elements here
+# name  - name of the partition
+# path  - where disk/partition is mounted {{ kubernetes_data_path }}/{{ item.path }}
+# tag   - tag used by storageclass manifest to access specific group of disks/partitions
+longhorn_disks:
+  - name: "users-data"
+    path: "users-data"
+    tag: "users-data"
+  - name: "users-mysql"
+    path: "users-mysql"
+    tag: "users-mysql"
+
+#/\/\/\/\/\/\//\/\/\/\/\/\//\/\/\/\/\/\//\/\/\/\/\/\//\/\/\/\/\/\//\/\/\/\/\/\/#
+
+####### Packages #######
+# Below are packages used by all groups
+# apt install is using values below
+
+
+#Misc
+bash_completion: "bash-completion"
+
+#Docker
+containerd: "containerd.io"
+
+#Kubernetes
+kubelet: "kubelet"
+kubeadm: "kubeadm"
+kubectl: "kubectl"
+
+#Longhorn
+open_iscsi: "open-iscsi"
+gawk: "gawk"
+util_linux: "util-linux"
+cryptsetup: "cryptsetup"
+dmsetup: "dmsetup"
+
+#Helm
+helm: "helm"
+
+#Local image repository
+skopeo: "skopeo"
+
+#Python
+python_kubernetes: "{{ python }}-kubernetes"
+python_openshift: "{{ python }}-openshift"
+python_yaml: "{{ python }}-yaml"

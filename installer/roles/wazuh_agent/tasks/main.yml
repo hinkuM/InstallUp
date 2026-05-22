@@ -1,0 +1,103 @@
+###### Repository and apt section ######
+
+- name: Check if wazuh agent is already installed
+  ansible.builtin.package_facts:
+    manager: "auto"
+  tags: ["wazuh_agent", "install"]
+
+- name: Download Wazuh GPG key (Armored)
+  ansible.builtin.get_url:
+    url: "https://packages.wazuh.com/key/GPG-KEY-WAZUH"
+    dest: "/tmp/wazuh.asc"
+    mode: "0644"
+    force: false
+  when: "'wazuh-agent' not in ansible_facts.packages"
+  tags: ["wazuh_agent", "install"]
+
+- name: De-armor Wazuh key to binary GPG
+  ansible.builtin.command: 
+    cmd: "gpg --dearmor -o /etc/apt/keyrings/wazuh.gpg /tmp/wazuh.asc"
+    creates: "/etc/apt/keyrings/wazuh.gpg"
+  when: "'wazuh-agent' not in ansible_facts.packages"
+  tags: ["wazuh_agent", "install"]
+
+- name: Add Wazuh apt repository using the binary key
+  ansible.builtin.apt_repository:
+    repo: "deb [signed-by=/etc/apt/keyrings/wazuh.gpg] https://packages.wazuh.com/4.x/apt/ stable main"
+    state: "present"
+    filename: "wazuh.list"
+  when: "'wazuh-agent' not in ansible_facts.packages"
+  tags: ["wazuh_agent", "install"]
+
+- name: Update apt cache
+  ansible.builtin.apt:
+    update_cache: true
+  when: "'wazuh-agent' not in ansible_facts.packages"
+  tags: ["wazuh_agent", "install"]
+
+- name: Install Wazuh Agent
+  ansible.builtin.apt:
+    name: "{{ wazuh_agent }}"
+    state: "present"
+  environment:
+    WAZUH_MANAGER: "{{ servers.logs.first }}.{{ domains.main.name }}"
+  when: "'wazuh-agent' not in ansible_facts.packages"
+  tags: ["wazuh_agent", "install"]
+
+###### Config section ######
+
+- name: Overwrite ossec and join password for Wazuh Agent
+  ansible.builtin.template:
+    src: "{{ item.source }}"
+    dest: "{{ item.destination }}"
+    owner: "root"
+    group: "wazuh"
+    mode: "0640"
+  loop:
+    - source: "ossec.conf.j2"
+      destination: "/var/ossec/etc/ossec.conf"
+    - source: "authd.pass.j2"
+      destination: "/var/ossec/etc/authd.pass"
+  no_log: true
+  tags: ["wazuh_agent", "file"]
+
+- name: Overwrite Wazuh Agent certificates
+  ansible.builtin.copy:
+    src: "{{ clients_cert_dir }}/{{ item.origin }}"
+    dest: "/var/ossec/etc/{{ item.dest }}"
+    remote_src: "yes"
+    owner: "root"
+    group: "wazuh"
+    mode: "0640"
+  loop:
+    - origin: "client-crt.pem"
+      dest: "agent.cert"
+    - origin: "client-key.pem"
+      dest: "agent.key"
+    - origin: "root-ca.pem"
+      dest: "root-ca.pem"
+  no_log: true
+  tags: ["wazuh_agent", "file"]
+
+###### Repository section ######
+
+- name: Remove Wazuh repository
+  ansible.builtin.apt_repository:
+    repo: "deb [signed-by=/etc/apt/keyrings/wazuh.gpg] https://packages.wazuh.com/4.x/apt/ stable main"
+    state: "absent"
+    filename: "wazuh.list"
+  tags: ["wazuh_agent", "install"]
+
+###### Handler section ######
+
+- name: Enable Wazuh Agent
+  ansible.builtin.service:
+    name: "wazuh-agent"
+    enabled: true
+  tags: ["wazuh_agent", "handler"]
+
+- name: Restart Wazuh Agent
+  ansible.builtin.service:
+    name: "wazuh-agent"
+    state: restarted
+  tags: ["wazuh_agent", "handler"]

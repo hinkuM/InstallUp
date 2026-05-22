@@ -1,0 +1,202 @@
+#################################
+#                               #
+#        # Comment              #
+#        variable: "value"      #
+#                               #
+#################################
+# All credentials are stored in vault.yaml files which are encrypted using .vault_pass file
+
+
+####### System #######
+# Password that will be set as root password
+root_password: "{{ vault_root_password }}"
+# Name of the user that was created at the installation process of system (sudo user)
+new_admin_user: "logs_user"
+# Password for sudo user is stored in installer/host_vars/inventory_name/vault.yaml
+new_admin_password: "{{ vault_new_admin_password }}"
+# User used to connect to host using SSH
+ansible_user: "{{ new_admin_user }}"
+# Password used by ansible to execute sudo commands
+ansible_become_password: "{{ new_admin_password }}"
+
+####### Grafana #######
+# Username later used to log in into grafana website as admin
+grafana_admin_user: "grafana_user"
+# Password for that admin
+grafana_admin_password: "{{ vault_grafana_admin_password }}"
+# Grafana key used to encode secrets
+grafana_secret_key: "{{ vault_grafana_secret_key }}"
+# Port on which grafana webiste can be accessed
+grafana_dashboard_port: "3000"
+
+####### Logrotate #######
+# Name of file template that contains all logrotate rules
+logrotate_file: "logs"
+
+####### Iptables #######
+# Sets which ports are allowed on specific host using iptables
+# input   - list of ports allowed to enter
+# output  - list of ports allowed to leave
+# special - list of ports with special conditions
+#     action      - direction to ACCEPT ["INPUT", "OUTPUT"]
+#     protocol    - what protocol should this port use ["udp", "tcp", null] not adding "protocol" key to object will automatically set it to tcp
+#     source      - which host is allowed as source
+#     destination - which host is allowed as destination
+#     port        - which port to use these conditions on
+ports:
+  input:
+    - "80"
+    - "443"
+    - "1514"
+    - "1515"
+    - "{{ ssh_port }}"
+    - "{{ grafana_dashboard_port }}"
+    - "{{ wazuh_dashboard_port }}"
+    - "3100"
+    - "9090"
+  output:
+    - "80"
+    - "443"
+    - "587"
+  special:
+    - action: INPUT
+      source: "{{ servers.mail.first }}.{{ domains.main.name }}"
+      destination: "{{ servers.logs.first }}.{{ domains.main.name }}"
+      port: "3310"
+    - action: INPUT
+      source: "{{ servers.mail.first }}.{{ domains.main.name }}"
+      destination: "{{ servers.logs.first }}.{{ domains.main.name }}"
+      port: "7357"
+
+####### Alloy #######
+# List of files that alloy should monitor and send to loki
+# path  - absolute path to file
+# name  - name used to label logs from that file, used in grafana query
+# owner - user which should own these files, used for logrotate so privileges don't break
+alloy_files:
+  - path: "/var/log/clamav/clamav.log"
+    name: "clamav"
+    owner: "clamav"
+  - path: "/var/log/clamav/freshclam.log"
+    name: "freshclam"
+    owner: "clamav"
+  - path: "/var/log/clamav/clamav-milter.log"
+    name: "clamav-milter"
+    owner: "clamav"
+  - path: "/var/log/filebeat/filebeat"
+    name: "filebeat"
+  - path: "/var/log/grafana/grafana.log"
+    name: "grafana"
+    owner: "grafana"
+  - path: "/var/log/wazuh-indexer/gc.log"
+    name: "wazuh-indexer-gc"
+    owner: "wazuh-indexer"
+  - path: "/var/log/wazuh-indexer/{{ logs_cluster_name }}.log"
+    name: "wazuh-indexer-cluster"
+    owner: "wazuh-indexer"
+  - path: "/var/log/wazuh-indexer/{{ logs_cluster_name }}_deprecation.log"
+    name: "wazuh-indexer-cluster-deprecation"
+    owner: "wazuh-indexer"
+  - path: "/var/log/wazuh-indexer/{{ logs_cluster_name }}_index_indexing_slowlog.log"
+    name: "wazuh-indexer-cluster-index-indexing-slowlog"
+    owner: "wazuh-indexer"
+  - path: "/var/log/wazuh-indexer/{{ logs_cluster_name }}_task_detailslog.log"
+    name: "wazuh-indexer-cluster-task-detailslog"
+    owner: "wazuh-indexer"
+  - path: "/var/log/wazuh-dashboard.log"
+    name: "wazuh-dashboard"
+    owner: "wazuh-dashboard"
+
+####### Hosts #######
+# List of all hosts that are going to be configurated by this ansbile script
+# Only used to generate certificates and ssh keys
+computers:
+  - hostname: "{{ servers.firewall.first }}"
+    dns_name: "{{ servers.firewall.first }}.{{ domains.main.name }}"
+  - hostname: "{{ servers.logs.first }}"
+    dns_name: "{{ servers.logs.first }}.{{ domains.main.name }}"
+  - hostname: "{{ servers.mail.first }}"
+    dns_name: "{{ servers.mail.first }}.{{ domains.main.name }}"
+  - hostname: "{{ servers.master.first }}"
+    dns_name: "{{ servers.master.first }}.{{ domains.main.name }}"
+  - hostname: "{{ servers.slave.first }}"
+    dns_name: "{{ servers.slave.first }}.{{ domains.main.name }}"
+  - hostname: "{{ servers.slave.second }}"
+    dns_name: "{{ servers.slave.second }}.{{ domains.main.name }}"
+
+####### Wazuh #######
+# Username for Wazuh dashboard admin
+# If you want to change it/make new admin do it using Wazuh dashboard UI, it is SOOO MUCH EASIER
+# DO NOT CHANGE (just use wazuh UI)
+wazuh_admin_username: "admin"
+# Password used to log in into Wazuh dashboard as admin (username above)
+wazuh_admin_password: "{{ vault_wazuh_admin_password }}"
+# User for filebeat
+# Currenly not in use
+wazuh_writer_username: "wazuh_writer"
+# Password for filebeat user
+# Currenly not in use
+wazuh_writer_password: "{{ vault_wazuh_writer_password }}"
+# User that has only read only privileges
+wazuh_read_only_username: "read_only_user"
+# Password for read only user
+wazuh_read_only_password: "{{ vault_wazuh_read_only_password }}"
+# Mail address to which mails could be sent by Wazuh server about alerts, etc
+
+# CURRENTLY DISABLED, found in installer/roles/wazuh_manager/templates/ossec.conf.j2
+wazuh_server_mail_recipient: "you@{{ domains.main.name }}"
+
+# Port on which Wazuh dashboard website can be accessed
+wazuh_dashboard_port: "443"
+# Password for user that works in background, opensearch dashboards
+wazuh_kibanaserver_password: "{{ vault_wazuh_kibanaserver_password }}"
+
+####### Dashboard #######
+# Below are common names for server certificates refering to hostname or specific users
+wazuh_indexer_common_name: "{{ wazuh_admin_username }}"
+wazuh_dashboard_common_name: "kibanaserver" # leave kibanaserver
+wazuh_manager_common_name: "{{ servers.logs.first }}"
+filebeat_common_name: "filebeat" # DO NOT CHANGE THESE
+grafana_common_name: "grafana" # DO NOT CHANGE THESE
+loki_common_name: "{{ servers.logs.first }}"
+prometheus_common_name: "{{ servers.logs.first }}"
+# Certificate credentials tells server what certificate needs to contain to be seen as admin
+admin_subject_config_file: "CN={{ wazuh_indexer_common_name }},O={{ organization_name }},L={{ locality_name }},ST={{ state_or_province_name }},C={{ country_name }}"
+# Certificate credentials tells server what certificate needs to contain to be seen as server
+server_subject_config_file: "CN={{ servers.logs.first }}.{{ domains.main.name }},O={{ organization_name }},L={{ locality_name }},ST={{ state_or_province_name }},C={{ country_name }}"
+
+#/\/\/\/\/\/\//\/\/\/\/\/\//\/\/\/\/\/\//\/\/\/\/\/\//\/\/\/\/\/\//\/\/\/\/\/\/#
+
+####### Packages #######
+# Below are packages used by all groups
+# apt install is using values below
+
+
+#clamav
+clamav: "clamav"
+clamav_daemon: "clamav-daemon"
+clamav_freshclam: "clamav-freshclam"
+clamav_milter: "clamav-milter"
+clamdscan: "clamdscan"
+libclamunrar: "libclamunrar"
+
+#wazuh-indexer
+procps: "procps"
+adduser: "adduser"
+wazuh_indexer: wazuh-indexer
+
+#wazuh-dashboard
+debhelper: "debhelper"
+libcap2_bin: "libcap2-bin"
+tar: "tar"
+wazuh_dashboard: "wazuh-dashboard"
+
+#wazuh-manager
+filebeat: "filebeat"
+wazuh_manager: "wazuh-manager"
+
+#grafana
+grafana: "grafana"
+
+#loki
+loki: "loki"

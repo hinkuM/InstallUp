@@ -1,0 +1,66 @@
+- name: Create cerificates and ssh keys on logs server
+  hosts: logs
+  gather_facts: false
+  pre_tasks:
+    - name: Gather minimal facts as regular user (No sudo required)
+      setup:
+        gather_subset:
+          - min
+      become: false
+      tags: ["always"]
+
+    - name: Dynamically set sudo executable based on Ubuntu version
+      set_fact:
+        ansible_become_exe: "{{ 'sudo.ws' if (ansible_distribution_major_version == '26') else 'sudo' }}"
+      become: false
+      tags: ["always"]
+
+    - name: Dynamically set become
+      set_fact:
+        ansible_become: true
+      become: false
+      tags: ["always"]
+  vars:
+    # Password used by ansible to login into remote computer when not using ssh key
+    ansible_password: "{{ new_admin_password }}"
+    ansible_ssh_common_args: '-o PreferredAuthentications=password -o IdentitiesOnly=no -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null'
+  roles:
+    - system
+    - certs
+
+- name: Change ssh connection method to key only
+  hosts: lan
+  gather_facts: false
+  pre_tasks:
+    - name: Gather minimal facts as regular user (No sudo required)
+      setup:
+        gather_subset:
+          - min
+      become: false
+      tags: ["always"]
+
+    - name: Dynamically set sudo executable based on Ubuntu version
+      set_fact:
+        ansible_become_exe: "{{ 'sudo.ws' if (ansible_distribution_major_version == '26') else 'sudo' }}"
+      become: false
+      tags: ["always"]
+
+    - name: Dynamically set become
+      set_fact:
+        ansible_become: true
+      become: false
+      tags: ["always"]
+  vars:
+    # Password used by ansible to login into remote computer when not using ssh key
+    ansible_password: "{{ new_admin_password }}"
+    ansible_ssh_common_args: '-o PreferredAuthentications=password -o IdentitiesOnly=no -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null'
+  roles:
+    - ssh
+
+###### Tags ######
+
+# Specific modules only                                   just name of the role for example docker or longhorn
+# Only install packages                                   install
+# Only copy or replace files/templates                    file
+# Commands that should run one time (not install)         once
+# Systemctl actions                                       handler

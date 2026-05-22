@@ -1,0 +1,39 @@
+###### Apt section ######
+
+- name: Ensure universe repository is enabled
+  ansible.builtin.apt_repository:
+    repo: "deb http://archive.ubuntu.com/ubuntu {{ ansible_facts.distribution_release }} universe"
+    state: present
+  tags: ["php", "install"]
+
+- name: Install {{ php_version }} and required extensions
+  ansible.builtin.apt:
+    name: "{{ item }}"
+    state: present
+  loop:
+    - "{{ php_fpm }}"
+    - "{{ php_cli }}"
+    - "{{ php_mysql }}"
+    - "php-pear"
+    - "{{ php_mbstring }}"
+    - "{{ php_intl }}"
+    - "{{ php_xml }}"
+    - "{{ php_curl }}"
+    - "{{ php_zip }}"
+    - "{{ php_gd }}"
+    - "{{ pexpect }}"
+  tags: ["php", "install"]
+
+###### Handler section ######
+
+- name: Restart php-fpm
+  ansible.builtin.service:
+    name: "{{ php_version }}-fpm.service"
+    state: "restarted"
+  tags: ["php", "handler"]
+
+- name: Enable php-fpm
+  ansible.builtin.service:
+    name: "{{ php_version }}-fpm.service"
+    enabled: true
+  tags: ["php", "handler"]

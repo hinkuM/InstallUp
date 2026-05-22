@@ -1,0 +1,162 @@
+###### Cleaning section ######
+
+- name: Set the policy for the INPUT chain to ACCEPT
+  ansible.builtin.iptables:
+    chain: "INPUT"
+    policy: "ACCEPT"
+  tags: ["iptables"]
+
+- name: Set the policy for the FORWARD chain to ACCEPT
+  ansible.builtin.iptables:
+    chain: "FORWARD"
+    policy: "ACCEPT"
+  tags: ["iptables"]
+
+- name: Set the policy for the OUTPUT chain to ACCEPT
+  ansible.builtin.iptables:
+    chain: "OUTPUT"
+    policy: "ACCEPT"
+  tags: ["iptables"]
+
+- name: Flush all rules in the filter table
+  ansible.builtin.iptables:
+    flush: yes
+  tags: ["iptables"]
+
+###### Main ports section ######
+
+- name: Allow connections on multiple ports
+  ansible.builtin.iptables:
+    chain: "INPUT"
+    protocol: "tcp"
+    destination_ports: "{{ ports.input | unique | join(',') }}"
+    jump: "ACCEPT"
+  tags: ["iptables"]
+
+- name: Allow connections on multiple ports
+  ansible.builtin.iptables:
+    chain: "OUTPUT"
+    protocol: "tcp"
+    destination_ports: "{{ ports.output | unique | join(',') }}"
+    jump: "ACCEPT"
+  tags: ["iptables"]
+
+- name: Allow DNS and NTP ports
+  ansible.builtin.iptables:
+    chain: "OUTPUT"
+    protocol: "udp"
+    destination_ports: 
+      - "53"
+      - "123"
+    jump: "ACCEPT"
+  tags: ["iptables"]
+
+- name: Allow DNS and NTP ports
+  ansible.builtin.iptables:
+    chain: "OUTPUT"
+    protocol: "tcp"
+    destination_ports: 
+      - "53"
+      - "123"
+    jump: "ACCEPT"
+  tags: ["iptables"]
+
+
+###### Special ports section ######
+
+- name: Allow special port conditions
+  ansible.builtin.iptables:
+    chain: "{{ item.action }}"
+    protocol: "{{ item.protocol | default('tcp') }}"
+    source: "{{ item.source | default(omit) }}"
+    destination: "{{ item.destination | default(omit) }}"
+    destination_port: "{{ item.port }}"
+    jump: "ACCEPT"
+  loop: "{{ ports.special }}"
+  when: ports.special is defined and ports.special | length > 0
+  tags: ["iptables"]
+
+###### Connections section ######
+
+- name: Allow established and related connections
+  ansible.builtin.iptables:
+    chain: "INPUT"
+    protocol: "{{ item }}"
+    ctstate: "ESTABLISHED,RELATED"
+    jump: "ACCEPT"
+  loop:
+    - "tcp"
+    - "udp"
+  tags: ["iptables"]
+
+- name: Allow established and related outgoing connections
+  ansible.builtin.iptables:
+    chain: "OUTPUT"
+    protocol: "{{ item }}"
+    ctstate: "ESTABLISHED,RELATED"
+    jump: "ACCEPT"
+  loop:
+    - "tcp"
+    - "udp"
+  tags: ["iptables"]
+
+- name: Allow established and related outgoing connections
+  ansible.builtin.iptables:
+    chain: "FORWARD"
+    protocol: "{{ item }}"
+    ctstate: "ESTABLISHED,RELATED"
+    jump: "ACCEPT"
+  loop:
+    - "tcp"
+    - "udp"
+  when: "'kubernetes' in group_names"
+  tags: ["iptables"]
+
+###### Loopback section ######
+
+- name: Allow Loopback
+  ansible.builtin.iptables:
+    chain: "INPUT"
+    in_interface: "lo"
+    jump: "ACCEPT"
+  tags: ["iptables"]
+
+- name: Allow Loopback
+  ansible.builtin.iptables:
+    chain: "OUTPUT"
+    out_interface: "lo"
+    jump: "ACCEPT"
+  tags: ["iptables"]
+
+###### Default policies section ######
+
+- name: Set the policy for the INPUT chain to DROP
+  ansible.builtin.iptables:
+    chain: "INPUT"
+    policy: "DROP"
+  tags: ["iptables"]
+
+- name: Set the policy for the FORWARD chain to DROP
+  ansible.builtin.iptables:
+    chain: "FORWARD"
+    policy: "DROP"
+  tags: ["iptables"]
+
+- name: Set the policy for the FORWARD chain to ACCEPT for k8s mesh
+  ansible.builtin.iptables:
+    chain: "FORWARD"
+    policy: "ACCEPT"
+  when: "'slave' in group_names"
+  tags: ["iptables"]
+
+- name: Set the policy for the OUTPUT chain to DROP
+  ansible.builtin.iptables:
+    chain: "OUTPUT"
+    policy: "DROP"
+  tags: ["iptables"]
+
+- name: Save current state of the firewall in system file
+  community.general.iptables_state:
+    state: "saved"
+    path: "/etc/iptables/rules.v4"
+  tags: ["iptables"]

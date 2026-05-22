@@ -1,0 +1,5 @@
+tls_server_config:
+  cert_file: "{{ prometheus_cert_dir }}/server-crt.pem"
+  key_file: "{{ prometheus_cert_dir }}/server-key.pem"
+  client_auth_type: "RequireAndVerifyClientCert"
+  client_ca_file: "{{ root_ca_dir }}/root-ca.pem"

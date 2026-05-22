@@ -1,0 +1,138 @@
+###### Repository section ######
+
+- name: Check if kubernetes is already installed
+  ansible.builtin.package_facts:
+    manager: "auto"
+  tags: ["kubernetes", "install"]
+
+- name: Download and dearmor Kubernetes GPG key
+  ansible.builtin.shell: >
+    curl -fsSL https://pkgs.k8s.io/core:/stable:/{{ kubernetes_version }}/deb/Release.key | 
+    gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+  args:
+    creates: /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+  when: 
+    - "'kubelet' not in ansible_facts.packages"
+    - "'kubeadm' not in ansible_facts.packages"
+    - "'kubectl' not in ansible_facts.packages"
+  tags: ["kubernetes", "install"]
+
+- name: Add Kubernetes apt repository
+  ansible.builtin.apt_repository:
+    repo: "deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/{{ kubernetes_version }}/deb/ /"
+    state: "present"
+    filename: "kubernetes"
+  when: 
+    - "'kubelet' not in ansible_facts.packages"
+    - "'kubeadm' not in ansible_facts.packages"
+    - "'kubectl' not in ansible_facts.packages"
+  tags: ["kubernetes", "install"]
+
+###### Apt section ######
+
+- name: Update apt cache
+  ansible.builtin.apt:
+    update_cache: true
+  tags: ["kubernetes", "install"]
+
+- name: Install kubelet kubeadm kubectl
+  ansible.builtin.apt:
+    name: 
+      - "{{ kubelet }}"
+      - "{{ kubeadm }}"
+      - "{{ kubectl }}"
+  tags: ["kubernetes", "install"]
+
+- name: Prevent Kubernetes packages from updating
+  ansible.builtin.dpkg_selections:
+    name: "{{ item }}"
+    selection: hold
+  loop:
+    - "{{ kubelet }}"
+    - "{{ kubeadm }}"
+    - "{{ kubectl }}"
+  tags: ["kubernetes", "install"]
+
+- name: Ensure br_netfilter is loaded at boot
+  ansible.builtin.copy:
+    dest: /etc/modules-load.d/k8s.conf
+    content: |
+      overlay
+      br_netfilter
+    mode: "0644"
+  no_log: true
+  tags: ["kubernetes"]
+
+- name: Load modules into current session
+  community.general.modprobe:
+    name: "{{ item }}"
+    state: "present"
+  loop:
+    - "overlay"
+    - "br_netfilter"
+  tags: ["kubernetes"]
+
+- name: Configure K8s networking (sysctl)
+  ansible.posix.sysctl:
+    name: "{{ item.key }}"
+    value: "{{ item.value }}"
+    sysctl_file: "/etc/sysctl.d/k8s.conf"
+    state: "present"
+    reload: true
+  loop:
+    - { key: 'net.bridge.bridge-nf-call-iptables', value: '1' }
+    - { key: 'net.ipv4.ip_forward', value: '1' }
+  tags: ["kubernetes"]
+
+- name: Create directory for docker image config
+  ansible.builtin.file:
+    path: "/etc/containerd/certs.d/{{ control_plane }}:5000"
+    owner: "root"
+    group: "{{ new_admin_user }}"
+    state: "directory"
+    mode: "0750"
+  tags: ["kubernetes", "file"]
+
+- name: Copy certificates to docker image dir
+  ansible.builtin.copy:
+    src: "{{ clients_cert_dir }}/{{ item }}"
+    dest: "/etc/containerd/certs.d/{{ control_plane }}:5000/{{ item }}"
+    remote_src: true
+    mode: "0640"
+    owner: "root"
+    group: "{{ new_admin_user }}"
+  loop: 
+    - "client-key.pem"
+    - "client-crt.pem"
+    - "root-ca.pem"
+  no_log: true
+  tags: ["kubernetes", "file"]
+
+- name: Copy docker image config
+  ansible.builtin.template:
+    src: "hosts.toml.j2"
+    dest: "/etc/containerd/certs.d/{{ control_plane }}:5000/hosts.toml"
+    owner: "root"
+    group: "{{ new_admin_user }}"
+    mode: "0740"
+  no_log: true
+  tags: ["kubernetes", "file"]
+
+- name: Installation for control plane
+  ansible.builtin.import_tasks:
+    file: "master.yaml"
+  when: "'master' in group_names"
+  tags: ["kubernetes"]
+
+- name: Installation for slave node
+  ansible.builtin.import_tasks:
+    file: "slave.yaml"
+  when: "'slave' in group_names"
+  tags: ["kubernetes"]
+
+- name: Remove kubernetes repository
+  ansible.builtin.apt_repository:
+    repo: "deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/{{ kubernetes_version }}/deb/ /"
+    state: "absent"
+    filename: "kubernetes"
+  tags: ["kubernetes", "install"]

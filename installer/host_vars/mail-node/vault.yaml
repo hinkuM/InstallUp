@@ -1,0 +1,28 @@
+#################################
+#                               #
+#        # Comment              #
+#        variable: "value"      #
+#                               #
+#################################
+
+
+####### Credentials #######
+# Password to be set as new root password
+vault_root_password: "plain_text_password"
+# Password for sudo user created at system installation process
+vault_new_admin_password: "plain_text_password"
+# Password for MySQL root user
+vault_mysql_root_password: "plain_text_password"
+# Password for MySQL roundcube user
+vault_roundcube_db_password: "plain_text_password"
+# Password for MySQL dovecot user
+vault_db_password: "plain_text_password"
+#This key is used to encrypt the users imap password which is stored
+#in the session record. For the default cipher method it must be
+#exactly 24 characters long.
+#YOUR KEY MUST BE DIFFERENT THAN THE SAMPLE VALUE FOR SECURITY REASONS
+vault_password_encryption_key: "imap_key"
+# rspamd read only user password
+vault_rspamd_read_only_password: "plain_text_password"
+# rspamd full access user password
+vault_rspamd_admin_password: "plain_text_password"

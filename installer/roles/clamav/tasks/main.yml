@@ -1,0 +1,64 @@
+###### Apt section ######
+
+- name: Install clamav packages
+  ansible.builtin.apt:
+    name: 
+      - "{{ clamav }}"
+      - "{{ clamav_daemon }}"
+      - "{{ clamav_freshclam }}"
+      - "{{ clamav_milter }}"
+      - "{{ clamdscan }}"
+      - "{{ libclamunrar }}"
+  tags: ["clamav", "install"]
+
+###### Environment section ######
+
+- name: Create directory for clamav
+  ansible.builtin.file:
+    path: "/var/lib/clamav/tmp"
+    state: "directory"
+    owner: "clamav"
+    group: "clamav"
+    mode: "0750"
+  tags: ["clamav", "file"]
+
+###### Config section ######
+
+- name: Overwrite clamav config files
+  ansible.builtin.template:
+    src: "{{ item.src }}"
+    dest: "/etc/clamav/{{ item.dest }}"
+    owner: "clamav"
+    group: "adm"
+    mode: "0644"
+  loop:
+    - src: "clamav-milter.conf.j2"
+      dest: "clamav-milter.conf"
+    - src: "clamd.conf.j2"
+      dest: "clamd.conf"
+    - src: "freshclam.conf.j2"
+      dest: "freshclam.conf"
+  no_log: true
+  tags: ["clamav", "file"]
+
+###### Handler section ######
+
+- name: Enable Clamav
+  ansible.builtin.service:
+    name: "{{ item }}"
+    enabled: true
+  loop:
+    - "clamav-freshclam"
+    - "clamav-daemon"
+    - "clamav-milter"
+  tags: ["clamav", "handler"]
+
+- name: Restart Clamav
+  ansible.builtin.service:
+    name: "{{ item }}"
+    state: restarted
+  loop:
+    - "clamav-freshclam"
+    - "clamav-daemon"
+    - "clamav-milter"
+  tags: ["clamav", "handler"]

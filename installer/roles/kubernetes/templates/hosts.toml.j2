@@ -1,0 +1,9 @@
+server = "https://{{ control_plane }}:5000"
+
+[host."https://{{ control_plane }}:5000"]
+  capabilities = ["pull", "resolve"]
+
+  ca = "/etc/containerd/certs.d/{{ control_plane }}:5000/root-ca.pem"
+  
+  cert = "/etc/containerd/certs.d/{{ control_plane }}:5000/client-crt.pem"
+  key  = "/etc/containerd/certs.d/{{ control_plane }}:5000/client-key.pem"

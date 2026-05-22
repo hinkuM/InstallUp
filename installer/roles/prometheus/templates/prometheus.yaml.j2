@@ -1,0 +1,41 @@
+global:
+  scrape_interval:     15s 
+  evaluation_interval: 15s 
+  external_labels:
+    monitor: 'central-monitor'
+    origin_prometheus: '{{ ansible_hostname }}'
+
+rule_files:
+  - 'prometheus.rules.yml'
+
+scrape_configs:
+  - job_name: 'prometheus'
+    scheme: https
+    tls_config:
+      ca_file: "{{ root_ca_dir }}/root-ca.pem"
+      cert_file: "{{ prometheus_cert_dir }}/server-crt.pem"
+      key_file: "{{ prometheus_cert_dir }}/server-key.pem"
+    static_configs:
+      - targets: ['{{ servers.logs.first }}.{{ domains.main.name }}:9090']
+
+  - job_name: 'grafana'
+    scheme: https
+    tls_config:
+      ca_file: "{{ root_ca_dir }}/root-ca.pem"
+      cert_file: "{{ prometheus_cert_dir }}/server-crt.pem"
+      key_file: "{{ prometheus_cert_dir }}/server-key.pem"
+    static_configs:
+      - targets: ['{{ servers.logs.first }}.{{ domains.main.name }}:3000']
+
+# change this to consul someday
+  - job_name: 'nginx'
+    scheme: https
+    tls_config:
+      ca_file: "{{ root_ca_dir }}/root-ca.pem"
+      cert_file: "{{ prometheus_cert_dir }}/server-crt.pem"
+      key_file: "{{ prometheus_cert_dir }}/server-key.pem"
+    dns_sd_configs:
+      - names:
+          - {{ servers.mail.first }}.{{ domains.main.name }}
+        type: A
+        port: 9113

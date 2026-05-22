@@ -1,0 +1,5 @@
+user = {{ db_username }}
+password = {{ db_password }}
+hosts = 127.0.0.1
+dbname = {{ db_name }}
+query = SELECT CONCAT(username, '@', domains.domain) FROM {{ db_table_users }} INNER JOIN {{ db_table_domains }} ON {{ db_table_domains }}.id_domain = {{ db_table_users }}.domain WHERE (username= '%u' OR CONCAT(username,'@',domains.domain)='%s') AND active='Y'

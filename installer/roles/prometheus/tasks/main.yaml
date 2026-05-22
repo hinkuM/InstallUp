@@ -1,0 +1,78 @@
+###### Environment section ######
+
+- name: Add the user prometheus
+  ansible.builtin.user:
+    name: "prometheus"
+    shell: "/usr/sbin/nologin"
+  tags: ["prometheus"]
+
+- name: Create a directory for prometheus
+  ansible.builtin.file:
+    path: "/opt/prometheus"
+    state: "directory"
+    recurse: true
+    owner: "prometheus"
+    group: "prometheus"
+  tags: ["prometheus"]
+
+- name: Set ownership for prometheus certs
+  ansible.builtin.file:
+    path: "{{ prometheus_cert_dir }}"
+    owner: "root"
+    group: "prometheus"
+    recurse: true
+  no_log: true
+  tags: ["alloy", "file"]
+
+###### Install section ######
+
+- name: Downloading and extracting prometheus
+  ansible.builtin.unarchive:
+    src: "https://github.com/prometheus/prometheus/releases/download/v3.5.3/prometheus-3.5.3.linux-amd64.tar.gz"
+    dest: "/opt/prometheus/"
+    remote_src: true
+    owner: "prometheus"
+    group: "prometheus"
+    extra_opts: [--strip-components=1]
+    creates: "/opt/prometheus/prometheus.yaml"
+  tags: ["prometheus", "install"]
+
+###### Config section ######
+
+- name: Copy templates to pc
+  ansible.builtin.template:
+    src: "{{ item.src }}"
+    dest: "{{ item.dest }}"
+    owner: "root"
+    group: "prometheus"
+    mode: "0640"
+  loop:
+    - src: "prometheus.service.j2"
+      dest: "/etc/systemd/system/prometheus.service"
+    - src: "prometheus.yaml.j2"
+      dest: "/opt/prometheus/prometheus.yaml"
+    - src: "prometheus.rules.yaml.j2"
+      dest: "/opt/prometheus/prometheus.rules.yaml"   
+    - src: "web-config.yaml.j2"
+      dest: "/opt/prometheus/web-config.yaml"  
+  tags: ["prometheus"]
+
+###### Handler section ######
+
+- name: Force systemd to reread configs
+  ansible.builtin.systemd:
+    daemon_reload: true
+  tags: ["prometheus", "handler"]
+
+- name: Reload service prometheus
+  ansible.builtin.systemd:
+    name: "prometheus"
+    state: "restarted"
+  tags: ["prometheus", "handler"]
+
+- name: Enable service prometheus
+  ansible.builtin.systemd:
+    name: "prometheus"
+    enabled: true
+  tags: ["prometheus", "handler"]
+  

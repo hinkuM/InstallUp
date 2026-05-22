@@ -1,0 +1,121 @@
+###### Environment section ######
+
+- name: Install packages for certbot
+  ansible.builtin.apt:
+    name:
+      - "{{ gcc }}"
+      - "{{ libaugeas_dev }}"
+      - "{{ python }}"
+      - "{{ python_dev }}"
+      - "{{ python_venv }}"
+    state: "present"
+  tags: ["certbot", "install"]
+
+- name: Create certbot venv
+  ansible.builtin.command: "{{ python }} -m venv /opt/certbot"
+  args:
+    creates: "/opt/certbot/bin/activate"
+  tags: ["certbot"]
+
+- name: Upgrade pip in venv
+  ansible.builtin.pip:
+    name: "pip"
+    state: "present"
+    virtualenv: "/opt/certbot"
+  tags: ["certbot", "install"]
+
+###### Apt section ######
+
+- name: Install latest version of certbot and plugins
+  ansible.builtin.pip:
+    name:
+      - "certbot"
+      - "certbot-nginx"
+      - "certbot-dns-cloudflare"
+    virtualenv: "/opt/certbot"
+  tags: ["certbot", "install"]
+
+###### Environment section ######
+
+- name: Symlink certbot binary
+  ansible.builtin.file:
+    src: "/opt/certbot/bin/certbot"
+    dest: "/usr/bin/certbot"
+    state: "link"
+    force: "yes"
+  tags: ["certbot", "file"]
+
+- name: Ensure secrets directory exists
+  ansible.builtin.file:
+    path: "/root/.secrets/certbot"
+    state: "directory"
+    owner: "root"
+    group: "root"
+    mode: "0700"
+  tags: ["certbot", "file"]
+
+###### Certificate section ######
+
+- name: Create cloudflare credential files
+  ansible.builtin.copy:
+    dest: "/root/.secrets/certbot/{{ item.filename }}"
+    content: |
+      dns_cloudflare_api_token = {{ item.token }}
+    owner: "root"
+    group: "root"      
+    mode: "0700"
+  loop: "{{ cert_and_mail_data }}"
+  no_log: true
+  tags: ["certbot", "file"]
+
+- name: Obtain certificate for all domains
+  ansible.builtin.command: >
+    certbot certonly
+    --dns-cloudflare
+    --dns-cloudflare-credentials /root/.secrets/certbot/{{ item.filename }}
+    --dns-cloudflare-propagation-seconds 60
+    -d {{ item.cert_domain }}
+    --non-interactive
+    --agree-tos
+    -m {{ item.mail }}
+  args:
+    creates: "/etc/letsencrypt/live/{{ item.cert_domain }}/fullchain.pem"
+  loop: "{{ cert_and_mail_data }}"
+  no_log: true
+  tags: ["certbot"]
+
+###### Handler section ######
+
+- name: Certbot renew cron
+  ansible.builtin.cron:
+    name: "certbot renew"
+    job: "/usr/bin/certbot renew --quiet"
+    minute: "0"
+    hour: "3"
+  tags: ["certbot"]
+
+- name: Certbot update cron
+  ansible.builtin.cron:
+    name: "certbot update"
+    job: "/opt/certbot/bin/pip install --upgrade certbot certbot-dns-cloudflare"
+    minute: "0"
+    hour: "1"
+    day: "7"
+  tags: ["certbot"]
+
+- name: Ensure Certbot deploy hooks directory exists
+  ansible.builtin.file:
+    path: "/etc/letsencrypt/renewal-hooks/deploy"
+    state: "directory"
+    mode: "0755"
+  tags: ["certbot", "file"]
+
+- name: Create Certbot renew deploy hook for mail services
+  ansible.builtin.copy:
+    dest: "/etc/letsencrypt/renewal-hooks/deploy/reload-mail.sh"
+    content: |
+      #!/bin/bash
+      systemctl reload dovecot
+      systemctl reload postfix
+    mode: "0755"
+  tags: ["certbot", "file"]

@@ -1,0 +1,27 @@
+LocalSocket /var/run/clamav/clamd.ctl
+FixStaleSocket true
+LocalSocketGroup clamav
+LocalSocketMode 666
+
+TCPSocket 3310
+TCPAddr 127.0.0.1
+
+MaxFileSize 100M
+MaxScanSize 150M
+StreamMaxLength 100M
+MaxRecursion 16
+MaxFiles 10000
+
+ScanArchive true
+libclamunrar_if_installed true # Ensure it uses the unrar lib we discussed
+
+OnAccessMaxFileSize 100M
+ScanPE true
+ScanOLE2 true
+ScanPDF true
+ScanHTML true
+
+LogFile /var/log/clamav/clamav.log
+LogTime true
+LogFileMaxSize 10M
+LogRotate false

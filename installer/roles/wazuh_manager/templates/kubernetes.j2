@@ -1,0 +1,61 @@
+<agent_config>
+  <localfile>
+    <location>/var/log/wtmp</location>
+    <log_format>full_command</log_format>
+    <command>last -f /var/log/wtmp</command>
+  </localfile>
+
+  <localfile>
+    <location>/var/log/btmp</location>
+    <log_format>full_command</log_format>
+    <command>lastb -f /var/log/btmp</command>
+  </localfile>
+
+  <localfile>
+    <location>/var/log/faillog</location>
+    <log_format>syslog</log_format>
+  </localfile>
+
+  <localfile>
+    <location>journald</location>
+    <log_format>journald</log_format>
+  </localfile>
+
+  <syscheck>
+    <frequency>21600</frequency>
+    <scan_on_start>yes</scan_on_start>
+    <skip_nfs>yes</skip_nfs>
+    <alert_new_files>yes</alert_new_files>
+    <ignore type="sregex">\.log$|\.swp$</ignore>
+
+    <directories check_all="yes" realtime="yes">/root/.ssh</directories>
+    <directories check_all="yes" restrict=".pem|.key|.crt|.csr|.p12" realtime="yes">{{ self_certs }}</directories>
+
+    <directories check_all="yes" realtime="yes">/etc/systemd/system</directories>
+    <directories check_all="yes" realtime="yes">/etc/cron.d</directories>
+    <directories check_all="yes" realtime="yes">/etc/ssh</directories>
+    <directories check_all="yes" realtime="yes">/etc/passwd</directories>
+    <directories check_all="yes" realtime="yes">/etc/shadow</directories>
+    <directories check_all="yes" realtime="yes">/etc/group</directories>
+    <directories check_all="yes" realtime="yes">/etc/gshadow</directories>
+    <directories check_all="yes" realtime="yes">/etc/sudoers</directories>
+    <directories check_all="yes" realtime="yes">/etc/sudoers.d</directories>
+
+    <directories check_all="yes">/home</directories>
+    <directories check_all="yes">/bin</directories>
+    <directories check_all="yes">/sbin</directories>
+    <directories check_all="yes">/usr/bin</directories>
+    <directories check_all="yes">/usr/sbin</directories>
+
+    <ignore>/etc/mtab</ignore>
+    <ignore>/etc/hosts.deny</ignore>
+    <ignore>/etc/adjtime</ignore>
+
+    <directories realtime="yes" check_all="yes">/etc/kubernetes</directories>
+    <directories realtime="yes" check_all="yes">/kubernetes</directories>
+
+    <nodiff>/etc/ssl/private</nodiff>
+    <nodiff>{{ self_certs }}</nodiff>
+
+  </syscheck>
+</agent_config>

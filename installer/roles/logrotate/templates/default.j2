@@ -1,0 +1,42 @@
+/var/log/alternatives.log
+/var/log/apt/term.log
+/var/log/apt/history.log
+/var/log/dpkg.log
+/var/log/unattended-upgrades/unattended-upgrades.log 
+/var/log/unattended-upgrades/unattended-upgrades-dpkg.log
+/var/log/unattended-upgrades/unattended-upgrades-shutdown.log {
+	monthly
+	rotate 12
+	compress
+	delaycompress
+	missingok
+	notifempty
+	create 644 root root
+}
+/var/log/apport.log
+/var/log/boot.log {
+       daily
+       rotate 7
+       delaycompress
+       compress
+       notifempty
+       missingok
+}
+/var/log/btmp
+/var/log/wtmp {
+    missingok
+    monthly
+    create 0660 root utmp
+    rotate 1
+    minsize 1M
+}
+/var/log/cloud-init*.log {
+    su root root
+    missingok
+    nocreate
+    notifempty
+    rotate 6
+    compress
+    delaycompress
+    size 1M
+}

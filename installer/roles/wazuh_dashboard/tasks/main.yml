@@ -1,0 +1,87 @@
+###### Apt section ######
+
+- name: Check if wazuh is already installed
+  ansible.builtin.package_facts:
+    manager: "auto"
+  tags: ["wazuh_dashboard", "install"]
+
+- name: Install Wazuh Dashboard and related packages
+  ansible.builtin.apt:
+    name: 
+      - "{{ debhelper }}"
+      - "{{ libcap2_bin }}"
+      - "{{ tar }}"
+      - "{{ wazuh_dashboard }}"
+  tags: ["wazuh_dashboard", "install"]
+
+- name: Remove Wazuh repository
+  ansible.builtin.apt_repository:
+    repo: "deb [signed-by=/etc/apt/keyrings/wazuh.gpg] https://packages.wazuh.com/4.x/apt/ stable main"
+    state: absent
+    filename: wazuh.list
+  when: 
+    - "'wazuh-indexer' in ansible_facts.packages"
+    - "'wazuh-manager' in ansible_facts.packages"
+    - "'wazuh-dashboard' in ansible_facts.packages"
+  tags: ["wazuh_dashboard", "install"]
+
+- name: Update apt
+  ansible.builtin.apt:
+    update_cache: true
+  tags: ["wazuh_dashboard", "install"]
+
+###### Config section ######
+
+- name: Create logging file
+  ansible.builtin.file:
+    path: "/var/log/wazuh-dashboard.log"
+    state: touch
+    owner: wazuh-dashboard
+    group: wazuh-dashboard
+    mode: '0644'
+  tags: ["wazuh_dashboard", "file"]
+
+- name: Overwrite opensearch_dashboards config
+  ansible.builtin.template:
+    src: opensearch_dashboards.yml.j2
+    dest: /etc/wazuh-dashboard/opensearch_dashboards.yml
+    owner: wazuh-dashboard
+    group: wazuh-dashboard
+    mode: '644'
+  no_log: true
+  tags: ["wazuh_dashboard", "file"]
+
+###### Certificate section ######
+
+- name: Set ownership Wazuh Dashboard certs
+  ansible.builtin.file:
+    path: "{{ wazuh_dashboard_cert_dir }}"
+    owner: "root"
+    group: "wazuh-dashboard"
+    recurse: true
+  no_log: true
+  tags: ["wazuh_dashboard", "file"]
+
+- name: Set ownership Wazuh inderxer certs
+  ansible.builtin.file:
+    path: "{{ wazuh_indexer_cert_dir }}"
+    owner: "wazuh-dashboard"
+    group: "wazuh-indexer"
+    recurse: true
+  no_log: true
+  tags: ["wazuh_dashboard", "file"]
+
+###### Handler section ######
+
+- name: Restart Wazuh Dashboard
+  ansible.builtin.service:
+    name: "wazuh-dashboard"
+    state: restarted
+  tags: ["wazuh_dashboard", "handler"]
+  
+- name: Enable Wazuh Dashboard
+  ansible.builtin.service:
+    name: "wazuh-dashboard"
+    enabled: true
+  tags: ["wazuh_dashboard", "handler"]
+

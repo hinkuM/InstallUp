@@ -1,0 +1,37 @@
+/var/log/clamav/clamav.log
+/var/log/clamav/freshclam.log 
+/var/log/clamav/clamav-milter.log {
+    weekly
+    rotate 4
+    create 0640 clamav adm
+    sharedscripts
+    postrotate
+        /usr/bin/systemctl reload clamav-daemon > /dev/null 2>&1 || true
+    endscript
+}
+
+/var/log/filebeat/filebeat {
+    daily
+    rotate 7
+    size 100M
+    missingok
+    compress
+    create 0640 root adm
+    copytruncate
+}
+
+/var/log/grafana/grafana.log {
+    weekly
+    rotate 4
+    create 0640 grafana adm
+    copytruncate
+}
+
+/var/log/wazuh-dashboard.log {
+    monthly
+    rotate 6
+    missingok
+    compress
+    delaycompress
+    create 0640 wazuh-dashboard adm
+}

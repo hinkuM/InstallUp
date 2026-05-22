@@ -1,0 +1,165 @@
+###### Apt section ######
+
+- name: Install Wazuh Manager and Filebeat
+  ansible.builtin.apt:
+    name: 
+      - "{{ wazuh_manager }}"
+      - "{{ filebeat }}"
+  tags: ["wazuh_manager", "install"]
+
+###### Wazuh config section ######
+
+- name: Overwrite wazuh config
+  ansible.builtin.template:
+    src: "{{ item.source }}"
+    dest: "{{ item.destination }}"
+    owner: "root"
+    group: "wazuh"
+    mode: "0640"
+  loop:
+    - source: "filebeat.yml.j2"
+      destination: "/etc/filebeat/filebeat.yml"
+    - source: "ossec.conf.j2"
+      destination: "/var/ossec/etc/ossec.conf"
+    - source: "authd.pass.j2"
+      destination: "/var/ossec/etc/authd.pass"
+  no_log: true
+  tags: ["wazuh_manager", "file"]
+
+- name: Create wazuh groups
+  ansible.builtin.file:
+    path: "/var/ossec/etc/shared/{{ item }}"
+    state: "directory"
+    owner: "wazuh"
+    group: "wazuh"
+    mode: "0700"
+  loop: "{{ wazuh_groups }}"
+  tags: ["wazuh_manager", "file"]
+
+- name: Copy rules for each wazuh group
+  ansible.builtin.template:
+    src: "{{ item }}.j2"
+    dest: "/var/ossec/etc/shared/{{ item }}/agent.conf"
+    owner: "wazuh"
+    group: "wazuh"
+    mode: "0660"
+  loop: "{{ wazuh_groups }}"
+  tags: ["wazuh_manager", "file"]
+
+###### Certificate section ######
+
+- name: Remove old certificates
+  ansible.builtin.file:
+    path: "/var/ossec/etc/{{ item }}"
+    state: "absent"
+  loop:
+    - "sslmanager.cert"
+    - "sslmanager.key"
+  no_log: true
+  tags: ["wazuh_manager", "file"]
+
+- name: Overwrite wazuh-manager certs
+  ansible.builtin.copy:
+    src: "{{ wazuh_manager_cert_dir }}/{{ item.origin }}"
+    dest: "/var/ossec/etc/{{ item.dest }}"
+    remote_src: true
+    owner: "root"
+    group: "wazuh"
+    mode: "0640"
+  loop:
+    - origin: "server-crt.pem"
+      dest: "sslmanager.cert"
+    - origin: "server-key.pem"
+      dest: "sslmanager.key"
+  no_log: true
+  tags: ["wazuh_manager", "file"]
+
+- name: Set ownership for Wazuh Manager and Filebeat certs
+  ansible.builtin.file:
+    path: "{{ item }}"
+    owner: "root"
+    group: "wazuh"
+    recurse: true
+  loop:
+    - "{{ wazuh_manager_cert_dir }}"
+    - "{{ filebeat_cert_dir }}"
+  no_log: true
+  tags: ["wazuh_manager", "file"]
+
+###### Filebeat config section ######
+
+- name: Create Filebeat keystore
+  ansible.builtin.command:
+    cmd: "filebeat keystore create --force"
+  tags: ["wazuh_manager"]
+
+- name: Add admin username to Filebeat keystore
+  ansible.builtin.command:
+    cmd: "filebeat keystore add username --stdin --force"
+    stdin: "{{ wazuh_admin_username }}"
+  tags: ["wazuh_manager"]
+
+- name: Add admin password to Filebeat keystore
+  ansible.builtin.command:
+    cmd: "filebeat keystore add password --stdin --force"
+    stdin: "{{ wazuh_admin_password }}"
+  tags: ["wazuh_manager"]
+
+- name: Download Wazuh indexer alerts template
+  ansible.builtin.get_url:
+    url: "https://raw.githubusercontent.com/wazuh/wazuh/v4.14.4/extensions/elasticsearch/7.x/wazuh-template.json"
+    dest: "/etc/filebeat/wazuh-template.json"
+    mode: "0644"
+    force: false
+  tags: ["wazuh_manager", "file"]
+
+- name: Install Wazuh Filebeat module
+  ansible.builtin.unarchive:
+    src: "https://packages.wazuh.com/4.x/filebeat/wazuh-filebeat-0.5.tar.gz"
+    dest: "/usr/share/filebeat/module"
+    remote_src: true
+  tags: ["wazuh_manager", "file"]
+
+- name: Add Indexer username to Wazuh keystore
+  ansible.builtin.command:
+    cmd: "/var/ossec/bin/wazuh-keystore -f indexer -k username"
+    stdin: "admin"
+  tags: ["wazuh_manager"]
+
+- name: Add Indexer password to Wazuh keystore
+  ansible.builtin.command:
+    cmd: "/var/ossec/bin/wazuh-keystore -f indexer -k password"
+    stdin: "{{ wazuh_admin_password }}"
+  tags: ["wazuh_manager"]
+
+###### Handler section ######
+
+- name: Restart Wazuh Manager
+  ansible.builtin.service:
+    name: "wazuh-manager"
+    state: "restarted"
+  tags: ["wazuh_manager", "handler"]
+
+- name: Enable Wazuh Manager
+  ansible.builtin.service:
+    name: "wazuh-manager"
+    enabled: true
+  tags: ["wazuh_manager", "handler"]
+
+- name: Test Filebeat config before restarting
+  ansible.builtin.command:
+    cmd: "filebeat test config"
+  tags: ["wazuh_manager"]
+
+- name: Restart Filebeat
+  ansible.builtin.service:
+    name: "filebeat"
+    state: "restarted"
+  tags: ["wazuh_manager", "handler"]
+
+- name: Enable Filebeat
+  ansible.builtin.service:
+    name: "filebeat"
+    enabled: true
+  tags: ["wazuh_manager", "handler"]
+

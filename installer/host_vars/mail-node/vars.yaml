@@ -1,0 +1,27 @@
+#################################
+#                               #
+#        # Comment              #
+#        variable: "value"      #
+#                               #
+#################################
+# All credentials are stored in vault.yaml files which are encrypted using .vault_pass file
+
+
+####### Postfix #######
+# Name of domain which will be used to bind with public ip, rest will be not (with DKIM)
+# The same values as in `cert_and_mail_data` list in installer/group_vars/all/vars.yaml
+current_bind_domain_for_cert: "poczta.{{ domains.second.name }}"
+# Name of domain which will be used to bind with public ip, rest will be not (without DKIM)
+current_bind_domain: "{{ domains.second.name }}"
+
+####### Roundcube #######
+# Text displayed at login page on mail website
+mail_home_title: "Random text here"
+# This key is used to encrypt the users imap password
+password_encryption_key: "{{ vault_password_encryption_key }}"
+# List of addresses enabled to use 2FA 
+# Both public and private ip addresses, file can be found at installer/roles/roundcube/templates/two-factor.j2
+list_of_used_addresses:
+  - "17.66.55.123/32" # public ip, didn't test deleting that
+  - "192.168.1.0/24" # private LAN network, can be deleted
+  - "192.168.2.0/24" # privare KUBERNETES network, can be deleted

@@ -1,0 +1,36 @@
+#################################
+#                               #
+#        # Comment              #
+#        variable: "value"      #
+#                               #
+##################################
+
+
+####### Paths to important directories #######
+# Directory for Wazuh indexer server cerificates
+wazuh_indexer_cert_dir: "{{ self_certs }}/wazuh_indexer"
+# Directory for Wazuh dashboard server cerificates
+wazuh_dashboard_cert_dir: "{{ self_certs }}/wazuh_dashboard"
+# Directory for Wazuh manager server cerificates
+wazuh_manager_cert_dir: "{{ self_certs }}/wazuh_manager"
+# Directory for Filebeat server cerificates
+filebeat_cert_dir: "{{ self_certs }}/filebeat"
+# Directory for Grafana server cerificates
+grafana_cert_dir: "{{ self_certs }}/grafana"
+# Directory for Loki server cerificates
+loki_cert_dir: "{{ self_certs }}/loki"
+# Directory for Prometheus server cerificates
+prometheus_cert_dir: "{{ self_certs }}/prometheus"
+
+#/\/\/\/\/\/\//\/\/\/\/\/\//\/\/\/\/\/\//\/\/\/\/\/\//\/\/\/\/\/\//\/\/\/\/\/\/#
+
+####### Packages #######
+# Below are packages used by all groups
+# apt install is using values below
+
+
+#wazuh-agent
+wazuh_agent: "wazuh-agent"
+
+#Misc
+debconf: "debconf"

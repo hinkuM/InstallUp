@@ -1,0 +1,42 @@
+<agent_config>
+  <localfile>
+    <location>/var/log/auth.log</location>
+    <log_format>syslog</log_format>
+  </localfile>
+
+  <localfile>
+    <location>/var/log/system.log</location>
+    <log_format>syslog</log_format>
+  </localfile>
+
+  <localfile>
+    <log_format>full_command</log_format>
+    <command>last -n 10</command>
+    <frequency>3600</frequency>
+  </localfile>
+
+  <syscheck>
+    <frequency>21600</frequency>
+    <scan_on_start>yes</scan_on_start>
+    <skip_nfs>yes</skip_nfs>
+    <alert_new_files>yes</alert_new_files>
+    <ignore type="sregex">\.log$|\.swp$</ignore>
+
+    <directories check_all="yes" realtime="yes">/root/.ssh</directories>
+    <directories check_all="yes" restrict=".pem|.key|.crt|.csr|.p12" realtime="yes">{{ self_certs }}</directories>
+
+    <directories check_all="yes" realtime="yes">/usr/local/etc/ssh</directories>
+    <directories check_all="yes" realtime="yes">/etc/rc.conf</directories>
+    <directories check_all="yes" realtime="yes">/etc/passwd</directories>
+    <directories check_all="yes" realtime="yes">/etc/master.passwd</directories>
+    <directories check_all="yes" realtime="yes">/etc/group</directories>
+    <directories check_all="yes" realtime="yes">/usr/local/etc/sudoers</directories>
+
+    <directories check_all="yes">/usr/local/sbin</directories>
+    <directories check_all="yes">/usr/local/bin</directories>
+    <directories check_all="yes">/sbin</directories>
+    <directories check_all="yes">/bin</directories>
+
+    <nodiff>/usr/local/etc/ssl</nodiff>
+  </syscheck>
+</agent_config>

@@ -1,0 +1,48 @@
+# Group called "all", refering to all hosts
+all:
+  children:
+  # Group "lan", only hosts inside LAN network
+    lan:
+      children:
+      # Group "mail", computers with mail configuration
+        mail:
+          hosts:
+          # This name can be whatever but must match name of the folder inside host_vars
+            mail-node:
+            # FQDN or hostname or IP (this will save for fingerprint name)
+            # Using hostname requires creating config file inside ~/.ssh/ directory using this template
+            ####################################
+            # Host used_hostname
+            #   HostName FQDN_or_IP
+            #   User user_used_to_log_in
+            #   IdentityFile /path/to/ssh/key
+            #   Port ssh_port
+            #   IdentitiesOnly yes
+            ####################################
+              ansible_host: mail
+            # Certificate to log in with
+              ansible_ssh_private_key_file: ./ssh_keys/mail
+      # Group "logs", computers with logs configuration
+        logs:
+          hosts:
+            logs-node:
+              ansible_host: logs
+              ansible_ssh_private_key_file: ./ssh_keys/logs
+  # Group "kubernetes", only hosts inside KUBERNETES network
+    kubernetes:
+      children:
+      # Group "master", computers with master configuration
+        master:
+          hosts:
+            master-node:
+              ansible_host: master
+              ansible_ssh_private_key_file: ./ssh_keys/master
+      # Group "slave", computers with slave configuration
+        slave:
+          hosts:
+            slave-node-01:
+              ansible_host: slave-01
+              ansible_ssh_private_key_file: ./ssh_keys/slave-01
+            slave-node-02:
+              ansible_host: slave-02
+              ansible_ssh_private_key_file: ./ssh_keys/slave-02

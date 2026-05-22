@@ -1,0 +1,17 @@
+#################################
+#                               #
+#        # Comment              #
+#        variable: "value"      #
+#                               #
+#################################
+
+
+####### Credentials #######
+# Password used to join Wazuh agent into Wazuh server 
+vault_wazuh_join_password: "plain_text_password"
+# Cloudflare tokens for renewing and obtaining certificates using certbot
+vault_cloudflare_tokens:
+  main: "your_cloudflare_token"
+  second: "your_cloudflare_token"
+# Password for backup user
+vault_backup_password: "plain_text_password"

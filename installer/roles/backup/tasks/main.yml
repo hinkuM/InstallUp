@@ -1,0 +1,31 @@
+###### Script section ######
+
+- name: Create directory for backup script
+  ansible.builtin.file:
+    path: "/backup_script"
+    owner: "{{ new_admin_user }}"
+    group: "{{ new_admin_user }}"
+    state: "directory"
+    mode: "0700"
+  tags: ["backup", "file"]
+
+- name: Copy backup script
+  ansible.builtin.template:
+    src: "{{ backup_filename }}.sh.j2"
+    dest: "/backup_script/backup.sh"
+    owner: "{{ new_admin_user }}"
+    group: "{{ new_admin_user }}"
+    mode: "0700"
+  no_log: true
+  tags: ["backup", "file"]
+
+###### Cron section ######
+
+- name: Overwrite cron config
+  ansible.builtin.template:
+    src: "crontab.j2"
+    dest: "/etc/crontab"
+    owner: "root"
+    group: "root"
+    mode: "0644"
+  tags: ["backup", "file"]

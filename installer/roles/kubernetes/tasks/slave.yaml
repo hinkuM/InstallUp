@@ -1,0 +1,86 @@
+- name: Create directory for all deployment stuff
+  ansible.builtin.file:
+    path: "{{ kubernetes_stuff_path }}"
+    owner: "root"
+    group: "{{ new_admin_user }}"
+    state: "directory"
+    mode: "0750"
+  tags: ["kubernetes", "file"]
+
+- name: Create directory for longhorn data
+  ansible.builtin.file:
+    path: "{{ kubernetes_data_path }}"
+    owner: "root"
+    group: "{{ new_admin_user }}"
+    state: "directory"
+    mode: "0750"
+  tags: ["kubernetes", "file"]
+
+- name: Create directory for longhorn disks
+  ansible.builtin.file:
+    path: "{{ kubernetes_data_path }}/{{ item.path }}"
+    owner: "root"
+    group: "{{ new_admin_user }}"
+    state: "directory"
+    mode: "0750"
+  loop: "{{ longhorn_disks }}"
+  tags: ["kubernetes", "file"]
+
+- name: Copy longhorn script for mounting folders
+  ansible.builtin.template:
+    src: "disk_mount.sh.j2"
+    dest: "{{ kubernetes_stuff_path }}/disk_mount.sh"
+    owner: "root"
+    group: "{{ new_admin_user }}"
+    mode: "0740"
+  tags: ["kubernetes", "file"]
+
+- name: Check if node has lingering kubernetes configurations
+  ansible.builtin.stat:
+    path: "/etc/kubernetes/"
+  register: kube_dir_check
+  tags: ["kubernetes"]
+
+- name: Force reset and nuke the entire kubernetes configuration tree
+  block:
+    - name: Run kubeadm reset
+      ansible.builtin.command: "kubeadm reset -f"
+      
+    - name: Stop kubelet service
+      ansible.builtin.service:
+        name: "kubelet"
+        state: "stopped"
+        
+    - name: Complete wipe of all old cluster artifacts (PKI, bootsrap, configs)
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: "absent"
+      loop:
+        - "/etc/kubernetes/"      # <-- This deletes bootstrap-kubelet.conf and pki/ca.crt automatically
+        - "/var/lib/kubelet/"
+        - "/var/lib/cni/"
+  when: kube_dir_check.stat.exists
+  tags: ["kubernetes"]
+
+- name: Copy join command script to slave pc
+  ansible.builtin.copy:
+    src: "{{ playbook_dir }}/join_command.sh"
+    dest: "/tmp/join_command.sh"
+    owner: "{{ new_admin_user }}"
+    group: "{{ new_admin_user }}"
+    mode: "0700"
+  no_log: true
+  tags: ["kubernetes", "file"]  
+
+- name: Join slave to master using .sh file
+  ansible.builtin.shell: "/tmp/join_command.sh"
+  args:
+    creates: "/etc/kubernetes/cluster_was.joined"
+  tags: ["kubernetes", "install"]
+
+- name: Delete join command script
+  ansible.builtin.file:
+    path: "/tmp/join_command.sh"
+    state: "absent"
+  no_log: true
+  tags: ["kubernetes", "file"]  

@@ -1,0 +1,145 @@
+###### Apt section ######
+
+- name: Install Roundcube
+  ansible.builtin.apt:
+    name: 
+      - "{{ roundcube }}"
+      - "{{ roundcube_plugins }}"
+    state: "present"
+  tags: ["roundcube", "install"]
+
+###### Config section ######
+
+- name: Overwrite config files (templates)
+  ansible.builtin.template:
+    src: "{{ item.source }}"
+    dest: "{{ item.destination }}"
+    owner: "www-data"
+    group: "www-data"
+    mode: "0640"
+  loop:
+    - source: "roundcube.conf.j2"
+      destination: "/etc/dbconfig-common/roundcube.conf"
+    - source: "config.inc.php.j2"
+      destination: "/etc/roundcube/config.inc.php"
+  no_log: true
+  tags: ["roundcube", "file"]
+
+- name: Symlink Roundcube config from /etc to the install directory
+  ansible.builtin.file:
+    src: "/etc/roundcube/config.inc.php"
+    dest: "/usr/share/roundcube/config.inc.php"
+    state: "link"
+    force: true
+  no_log: true
+  tags: ["roundcube", "file"]
+
+- name: Overwrite config files (not templates)
+  ansible.builtin.copy:
+    src: "{{ item.src }}"
+    dest: "{{ item.dest }}"
+    owner: "www-data"
+    group: "www-data"
+    mode: "0640"
+  loop:
+    - src: "composer.json"
+      dest: "/usr/share/roundcube/composer.json"
+  tags: ["roundcube", "file"]
+
+- name: Grant user ownership of the Roundcube directory
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: "www-data"
+    group: "www-data" 
+    mode: "0750"
+    recurse: true
+  loop:
+    - "/etc/roundcube"
+    - "/usr/share/roundcube"
+  tags: ["roundcube"]
+
+- name: Create directory for roundcube logs
+  ansible.builtin.file:
+    path: "/var/log/roundcube/"
+    state: "directory"
+    owner: "root"
+    group: "www-data" 
+    mode: "0770"
+  tags: ["roundcube"]
+
+- name: Ensure correct ownership
+  ansible.builtin.file:
+    path: /usr/share/roundcube/plugins
+    state: directory
+    owner: www-data
+    group: www-data
+    recurse: true
+  tags: ["roundcube"]
+
+- name: Trust the Roundcube 2FA directory in Git
+  ansible.builtin.command:
+    cmd: "git config --global --add safe.directory /usr/share/roundcube/plugins/twofactor_gauthenticator"
+  changed_when: false
+  tags: ["roundcube", "install"]
+
+- name: Clone 2FA repo
+  ansible.builtin.git:
+    repo: "https://github.com/alexandregz/twofactor_gauthenticator.git"
+    dest: "/usr/share/roundcube/plugins/twofactor_gauthenticator"
+    version: "master"
+    force: true
+  tags: ["roundcube", "install"]
+
+# - name: Install ACL so ansible can install composer components
+#   ansible.builtin.apt:
+#     name: "{{ acl }}"
+#     state: "present"
+#   tags: ["roundcube", "install"]
+
+# - name: Install composer dependencies
+#   community.general.composer:
+#     command: "update" # 'update' in case of error or something else happening
+#     working_dir: "/usr/share/roundcube"
+#     no_dev: yes
+#   become: true
+#   become_user: "www-data"
+#   vars:
+#     ansible_remote_tmp: /tmp/.ansible-www-data
+#   tags: ["roundcube", "install"]
+
+# - name: Uninstall ACL
+#   ansible.builtin.apt:
+#     name: "{{ acl }}"
+#     state: "absent"
+#   tags: ["roundcube", "install"]
+
+- name: Symlink roundcube plugin from usr to var
+  ansible.builtin.file:
+    src: "/usr/share/roundcube/plugins/twofactor_gauthenticator"
+    dest: "/var/lib/roundcube/plugins/twofactor_gauthenticator"
+    state: "link"
+    force: true
+  no_log: true
+  tags: ["roundcube", "file"]
+
+- name: Overwrite plugins
+  ansible.builtin.template:
+    src: "{{ item.source }}"
+    dest: "{{ item.destination }}"
+    owner: "www-data"
+    group: "www-data"
+    mode: "0640"
+  loop:
+    - source: "two-factor.j2"
+      destination: "/usr/share/roundcube/plugins/twofactor_gauthenticator/config.inc.php"
+    - source: "managesieve.j2"
+      destination: "/etc/roundcube/plugins/managesieve/config.inc.php"
+    - source: "password.j2"
+      destination: "/etc/roundcube/plugins/password/config.inc.php"
+  # no_log: true
+  tags: ["roundcube", "file"]
+
+- name: Apply debconf changes
+  ansible.builtin.command: "dpkg-reconfigure -f noninteractive roundcube-core"
+  tags: ["roundcube"]

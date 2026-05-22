@@ -1,0 +1,470 @@
+nameOverride: null
+
+namespaceOverride: null
+
+fullnameOverride: null
+
+global:
+  image:
+    registry: "{{ control_plane }}:5000"
+
+    # -- Optional set of global image pull secrets.
+    pullSecrets: []
+
+    pullPolicy: ""
+
+  podSecurityContext: {}
+
+crds:
+  create: true
+
+alloy:
+  configMap:
+    create: true
+    content: |
+        loki.source.journal "read"  {
+            forward_to = [loki.relabel.journal.receiver]
+            labels = {
+                program = "journal",
+                host = "{{ ansible_hostname }}",
+                group = "kubernetes",
+            }
+        }
+
+        loki.relabel "journal" {
+          forward_to = [loki.write.sender.receiver]
+
+          rule {
+            source_labels = ["__journal__systemd_unit"]
+            target_label  = "unit"
+          }
+        }
+
+        loki.write "sender" {
+          endpoint {
+            url = "https://{{ servers.logs.first }}.{{ domains.main.name }}:3100/loki/api/v1/push"
+            tls_config {
+              ca_file = "/etc/alloy/certs/root-ca.pem"
+              cert_file = "/etc/alloy/certs/client-crt.pem"
+              key_file  = "/etc/alloy/certs/client-key.pem"
+            }
+          }
+        }
+
+        prometheus.exporter.unix "node_system" {
+          include_exporter_metrics = true
+        }
+
+        prometheus.scrape "scrape_node" {
+          targets = prometheus.exporter.unix.node_system.targets
+          forward_to = [prometheus.relabel.add_labels_metrics.receiver]
+          scrape_interval = "15s"
+        }
+
+        prometheus.relabel "add_labels_metrics" {
+          forward_to = [prometheus.remote_write.central_prometheus.receiver]
+
+          rule {
+            action       = "replace"
+            replacement  = "{{ ansible_hostname }}"
+            target_label = "host"
+          }
+          rule {
+            action       = "replace"
+            replacement  = "metrics"
+            target_label = "program"
+          }
+          rule {
+            action       = "replace"
+            replacement  = "kubernetes"
+            target_label = "group"
+          }
+        }
+
+        prometheus.remote_write "central_prometheus" {
+          endpoint {
+            url = "https://{{ servers.logs.first }}.{{ domains.main.name }}:9090/api/v1/write"
+            tls_config {
+              ca_file = "/etc/alloy/certs/root-ca.pem"
+              cert_file = "/etc/alloy/certs/client-crt.pem"
+              key_file  = "/etc/alloy/certs/client-key.pem"
+            }
+          }
+        }
+
+        discovery.kubernetes "ingress_pods" {
+          role = "pod"
+          selectors {
+            role  = "pod"
+            field = "spec.nodeName=" + sys.env("HOSTNAME")
+          }
+        }
+
+        discovery.relabel "nginx_ingress_controller" {
+          targets = discovery.kubernetes.ingress_pods.targets
+
+          rule {
+            source_labels = ["__meta_kubernetes_namespace"]
+            regex         = "ingress-nginx"
+            action        = "keep"
+          }
+
+          rule {
+            source_labels = ["__meta_kubernetes_pod_label_app_kubernetes_io_component"]
+            regex         = "controller"
+            action        = "keep"
+          }
+
+          rule {
+            action       = "replace"
+            target_label = "__address__"
+            replacement  = "$1:12345"
+            source_labels = ["__meta_kubernetes_pod_ip"]
+          }
+
+          rule {
+            action       = "replace"
+            target_label = "instance"
+            source_labels = ["__meta_kubernetes_pod_name"]
+          }
+        }
+
+        prometheus.scrape "nginx_ingress" {
+          targets    = discovery.relabel.nginx_ingress_controller.output
+          forward_to = [prometheus.relabel.nginx_ingress_labels.receiver]
+        }
+
+        prometheus.relabel "nginx_ingress_labels" {
+          forward_to = [prometheus.remote_write.central_prometheus.receiver]
+
+          rule {
+            action       = "replace"
+            replacement  = "kubernetes-ingress-nginx"
+            target_label = "program"
+          }
+          rule {
+            action       = "replace"
+            replacement  = "kubernetes"
+            target_label = "group"
+          }
+          rule {
+            action       = "replace"
+            replacement  = "{{ ansible_hostname }}"
+            target_label = "host"
+          }
+        }
+
+  #############################################################################
+    name: null
+    key: null
+
+  clustering:
+    # -- Deploy Alloy in a cluster to allow for load distribution.
+    enabled: false
+
+    # -- Name for the Alloy cluster. Used for differentiating between clusters.
+    name: ""
+
+    # -- Name for the port used for clustering, useful if running inside an Istio Mesh
+    portName: http
+
+  stabilityLevel: "generally-available"
+
+  storagePath: /var/lib/alloy/data
+
+  # -- Enables Grafana Alloy container's http server port.
+  enableHttpServerPort: false
+
+  listenAddr: 0.0.0.0
+
+  listenPort: 12345
+
+  listenScheme: HTTP
+
+  initialDelaySeconds: 10
+
+  timeoutSeconds: 1
+
+  uiPathPrefix: /
+
+  enableReporting: false
+
+  extraEnv: []
+
+  envFrom: []
+
+  extraArgs: []
+
+  extraPorts: []
+
+  # -- Host aliases to add to the Alloy container.
+  hostAliases: []
+  # - ip: "20.21.22.23"
+  #   hostnames:
+  #     - "company.grafana.net"
+
+  mounts:
+    varlog: true
+    dockercontainers: true
+
+    extra:
+      - name: tls-certs
+        mountPath: /etc/alloy/certs
+        readOnly: true
+      - name: journal
+        mountPath: /var/log/journal
+        readOnly: true
+
+  securityContext: {}
+
+  resources: {}
+
+  lifecycle: {}
+
+  livenessProbe: {}
+
+image:
+  # -- Grafana Alloy image registry (defaults to docker.io)
+  registry: "{{ control_plane }}:5000"
+  # -- Grafana Alloy image repository.
+  repository: grafana/alloy
+  tag: v1.16.0
+  digest: null
+  pullPolicy: IfNotPresent
+  # -- Optional set of image pull secrets.
+  pullSecrets: []
+
+rbac:
+  create: true
+
+  namespaces: []
+
+  rules:
+    - apiGroups: ["", "discovery.k8s.io", "networking.k8s.io"]
+      resources: ["endpoints", "endpointslices", "ingresses", "pods", "services"]
+      verbs: ["get", "list", "watch"]
+    - apiGroups: [""]
+      resources: ["pods", "pods/log", "namespaces"]
+      verbs: ["get", "list", "watch"]
+    - apiGroups: ["monitoring.grafana.com"]
+      resources: ["podlogs"]
+      verbs: ["get", "list", "watch"]
+    - apiGroups: ["monitoring.coreos.com"]
+      resources: ["prometheusrules"]
+      verbs: ["get", "list", "watch"]
+    - apiGroups: ["monitoring.coreos.com"]
+      resources: ["alertmanagerconfigs"]
+      verbs: ["get", "list", "watch"]
+    - apiGroups: ["monitoring.coreos.com"]
+      resources: ["podmonitors", "servicemonitors", "probes", "scrapeconfigs"]
+      verbs: ["get", "list", "watch"]
+    - apiGroups: [""]
+      resources: ["events"]
+      verbs: ["get", "list", "watch"]
+    - apiGroups: [""]
+      resources: ["configmaps", "secrets"]
+      verbs: ["get", "list", "watch"]
+    - apiGroups: ["apps", "extensions"]
+      resources: ["replicasets"]
+      verbs: ["get", "list", "watch"]
+
+  clusterRules:
+    - apiGroups: [""]
+      resources: ["nodes"]
+      verbs: ["get", "list", "watch"]
+    - apiGroups: [""]
+      resources: ["nodes/pods"]
+      verbs: ["get", "list", "watch"]
+    - apiGroups: [""]
+      resources: ["nodes/metrics"]
+      verbs: ["get", "list", "watch"]
+    - nonResourceURLs: ["/metrics"]
+      verbs: ["get"]
+
+serviceAccount:
+  create: true
+  additionalLabels: {}
+  annotations: {}
+  name: null
+  automountServiceAccountToken: true
+
+configReloader:
+  enabled: true
+  image:
+    registry: "{{ control_plane }}:5000"
+    repository: prometheus-operator/prometheus-config-reloader
+    tag: v0.89.0
+    digest: ""
+    pullPolicy: IfNotPresent
+  customArgs: []
+  resources:
+    requests:
+      cpu: "10m"
+      memory: "50Mi"
+  securityContext: {}
+
+controller:
+  type: 'daemonset'
+
+  replicas: 1
+
+  extraLabels: {}
+
+  extraAnnotations: {}
+
+  parallelRollout: true
+
+  minReadySeconds: 10
+
+  hostNetwork: false
+
+  hostPID: false
+
+  dnsPolicy: ClusterFirst
+
+  terminationGracePeriodSeconds: null
+
+  revisionHistoryLimit: 10
+
+  updateStrategy: {}
+
+  nodeSelector: {}
+
+  tolerations: []
+
+  topologySpreadConstraints: []
+
+  priorityClassName: ''
+
+  podAnnotations: {}
+
+  podLabels: {}
+
+  podDisruptionBudget:
+    enabled: false
+    minAvailable: null
+    maxUnavailable: null
+
+  enableStatefulSetAutoDeletePVC: false
+
+  autoscaling:
+    enabled: false
+    minReplicas: 1
+    maxReplicas: 5
+    targetCPUUtilizationPercentage: 0
+    targetMemoryUtilizationPercentage: 80
+
+    scaleDown:
+      policies: []
+      selectPolicy: Max
+      stabilizationWindowSeconds: 300
+
+    scaleUp:
+      policies: []
+      selectPolicy: Max
+      stabilizationWindowSeconds: 0
+
+    horizontal:
+      enabled: false
+
+      minReplicas: 1
+      maxReplicas: 5
+      targetCPUUtilizationPercentage: 0
+      targetMemoryUtilizationPercentage: 80
+
+      scaleDown:
+        policies: []
+        selectPolicy: Max
+        stabilizationWindowSeconds: 300
+
+      scaleUp:
+        policies: []
+        selectPolicy: Max
+        stabilizationWindowSeconds: 0
+    vertical:
+      enabled: false
+
+      recommenders: []
+
+      resourcePolicy:
+        containerPolicies:
+        - containerName: alloy
+          controlledResources:
+          - cpu
+          - memory
+          controlledValues: "RequestsAndLimits"
+          maxAllowed: {}
+          minAllowed: {}
+
+      updatePolicy:
+
+  affinity: {}
+
+  volumes:
+    extra:
+      - name: tls-certs
+        secret:
+          secretName: tls-certs
+      - name: journal
+        hostPath:
+          path: /var/log/journal
+      - name: alloy-logs
+        hostPath:
+          path: /var/lib/alloy/data
+
+  volumeClaimTemplates: []
+
+  ## -- Additional init containers to run.
+  ## ref: https://kubernetes.io/docs/concepts/workloads/pods/init-containers/
+  ##
+  initContainers: []
+
+  # -- Additional containers to run alongside the Alloy container and initContainers.
+  extraContainers: []
+
+networkPolicy:
+  enabled: false
+  flavor: kubernetes
+
+  policyTypes: null
+
+  ingress:
+    - {}
+  egress:
+    - {}
+
+service:
+  enabled: true
+  type: ClusterIP
+  nodePort: 31128
+  clusterIP: ''
+  internalTrafficPolicy: Cluster
+  annotations: {}
+
+serviceMonitor:
+  enabled: false
+  additionalLabels: {}
+  interval: ""
+  metricRelabelings: []
+
+  tlsConfig: {}
+
+  relabelings: []
+ingress:
+  enabled: false 
+
+  annotations:
+    # - kubernetes.io/ingress.class: nginx
+
+  labels: {}
+  path: /
+  faroPort: 12347
+
+  pathType: Prefix
+
+  hosts:
+    - chart-example.local
+
+  tls: []
+
+extraObjects: []

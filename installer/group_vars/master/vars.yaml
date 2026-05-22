@@ -1,0 +1,31 @@
+#################################
+#                               #
+#        # Comment              #
+#        variable: "value"      #
+#                               #
+#################################
+# All credentials are stored in vault.yaml files which are encrypted using .vault_pass file
+
+
+####### System #######
+# Password that will be set as root password
+root_password: "{{ vault_root_password }}"
+# Name of the user that was created at the installation process of system (sudo user)
+new_admin_user: "kubernetes_user"
+# Password for sudo user is stored in installer/host_vars/inventory_name/vault.yaml
+new_admin_password: "{{ vault_new_admin_password }}"
+# User used to connect to host using SSH
+ansible_user: "{{ new_admin_user }}"
+# Password used by ansible to execute sudo commands
+ansible_become_password: "{{ new_admin_password }}"
+
+####### Kubernetes #######
+# User allowed to use kubectl commands and manage kubernetes cluster
+kubernetes_admin: "kubectl_user"
+# Password for that user
+kubernetes_admin_password: "{{ vault_kubernetes_admin_password }}"
+# Subnetwork inside kubernetes cluster is 10.244.0.0/16
+
+####### Logrotate #######
+# Name of file template that contains all logrotate rules
+logrotate_file: "master"

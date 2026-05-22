@@ -1,0 +1,123 @@
+local.file_match "app_logs" {
+    path_targets = [
+    {% for item in alloy_files | default([]) %}
+        { "__path__" = "{{ item.path }}", "program" = "{{ item.name }}" },
+    {% endfor %}
+    ]
+}
+
+loki.source.file "files" {
+    targets = local.file_match.app_logs.targets
+    forward_to = [loki.relabel.files.receiver]
+}
+
+loki.relabel "files" {
+    forward_to = [loki.write.sender.receiver]
+
+    rule {
+        action = "replace"
+        replacement = "{{ ansible_hostname }}"
+        target_label = "host"
+    }
+}
+
+loki.source.journal "read"  {
+    forward_to = [loki.relabel.journal.receiver]
+    labels = {
+        "program" = "journal",
+        "host" = "{{ ansible_hostname }}",
+        "group" = "standalone-pc",
+    }
+}
+
+loki.relabel "journal" {
+  forward_to = [loki.write.sender.receiver]
+
+  rule {
+    source_labels = ["__journal__systemd_unit"]
+    target_label  = "unit"
+  }
+}
+
+loki.write "sender" {
+    endpoint {
+        url = "https://{{ servers.logs.first }}.{{ domains.main.name }}:3100/loki/api/v1/push"
+        tls_config {
+            ca_file = "{{ clients_cert_dir }}/root-ca.pem"
+            cert_file = "{{ clients_cert_dir }}/client-crt.pem"
+            key_file  = "{{ clients_cert_dir }}/client-key.pem"
+        }
+    }
+}
+
+// /\/\/\/\/\/\/\///\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\
+
+prometheus.exporter.unix "node_system" {
+  include_exporter_metrics = true
+}
+
+prometheus.scrape "scrape_node" {
+  targets = prometheus.exporter.unix.node_system.targets
+  forward_to = [prometheus.relabel.add_labels_metrics.receiver]
+  scrape_interval = "15s"
+}
+
+prometheus.relabel "add_labels_metrics" {
+  forward_to = [prometheus.remote_write.central_prometheus.receiver]
+
+  rule {
+    action       = "replace"
+    replacement  = "{{ ansible_hostname }}"
+    target_label = "host"
+  }
+  rule {
+    action       = "replace"
+    replacement  = "metrics"
+    target_label = "program"
+  }
+  rule {
+    action       = "replace"
+    replacement  = "standalone-pc"
+    target_label = "group"
+  }
+}
+
+{% if "mail" in group_names %}
+prometheus.scrape "nginx" {
+  targets = [{"__address__" = "localhost:9113"}]
+  forward_to = [prometheus.relabel.add_labels_metrics.receiver]
+  scrape_interval = "15s"
+}
+
+prometheus.relabel "add_labels_nginx" {
+  forward_to = [prometheus.remote_write.central_prometheus.receiver]
+
+  rule {
+    action       = "replace"
+    replacement  = "{{ ansible_hostname }}"
+    target_label = "host"
+  }
+  rule {
+    action       = "replace"
+    replacement  = "nginx"
+    target_label = "program"
+  }
+  rule {
+    action       = "replace"
+    replacement  = "standalone-pc"
+    target_label = "group"
+  }
+}
+{% endif %}
+
+
+prometheus.remote_write "central_prometheus" {
+  endpoint {
+    url = "https://{{ servers.logs.first }}.{{ domains.main.name }}:9090/api/v1/write"
+    tls_config {
+        ca_file = "{{ clients_cert_dir }}/root-ca.pem"
+        cert_file = "{{ clients_cert_dir }}/client-crt.pem"
+        key_file  = "{{ clients_cert_dir }}/client-key.pem"
+    }
+  }
+}

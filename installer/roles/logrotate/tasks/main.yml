@@ -1,0 +1,53 @@
+###### Apt section ######
+
+- name: Install logrotate
+  ansible.builtin.apt:
+    name: "{{ logrotate }}"
+    state: "present"
+  tags: ["logrotate", "install"]
+
+###### Config section ######
+
+- name: Clean old logrotate files
+  ansible.builtin.file:
+    path: "/etc/logrotate.d/"
+    state: "absent"
+  tags: ["logrotate", "file"]
+
+- name: Ensure directory exists
+  ansible.builtin.file:
+    path: "/etc/logrotate.d"
+    state: "directory"
+    owner: "root"
+    group: "root"
+    mode: "0755"
+  tags: ["logrotate", "file"]
+
+- name: Apply initial log permissions for Alloy
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    owner: "{{ item.owner | default('root') }}"
+    group: "adm"
+    mode: "0640"
+    state: file
+  loop: "{{ alloy_files }}"
+  ignore_errors: true
+  tags: ["logrotate", "file"]
+
+- name: Overwrite logrotate files add default
+  ansible.builtin.template:
+    src: "default.j2"
+    dest: "/etc/logrotate.d/default"
+    owner: "root"
+    group: "root"
+    mode: "0644"
+  tags: ["logrotate", "file"]
+
+- name: Overwrite logrotate files
+  ansible.builtin.template:
+    src: "{{ logrotate_file }}.j2"
+    dest: "/etc/logrotate.d/{{ logrotate_file }}"
+    owner: "root"
+    group: "root"
+    mode: "0644"
+  tags: ["logrotate", "file"]

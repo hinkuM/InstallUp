@@ -1,0 +1,172 @@
+###### Apt section ######
+
+- name: Install dovecot packages
+  ansible.builtin.apt:
+    name:
+      - "{{ dovecot_core }}"
+      - "{{ dovecot_mysql }}"
+      - "{{ dovecot_imapd }}"
+      - "{{ dovecot_lmtpd }}"
+      - "{{ dovecot_sieve }}"
+      - "{{ dovecot_managesieved }}"
+    state: "present"
+  tags: ["dovecot", "install"]
+
+###### Environment section ######
+
+- name: Ensure group "dovecot_mail_user" exists
+  ansible.builtin.group:
+    name: "dovecot_mail_user"
+    gid: 5000
+    state: "present"
+  tags: ["dovecot"]
+
+- name: Add the user "dovecot_mail_user" for dovecot to handle mail storage
+  ansible.builtin.user:
+    name: "dovecot_mail_user"
+    comment: "mail storage handler"
+    uid: 5000
+    group: "dovecot_mail_user"
+  no_log: true
+  tags: ["dovecot"]
+
+- name: Create directory for mail
+  ansible.builtin.file:
+    path: "{{ mail_path }}"
+    owner: "dovecot_mail_user"
+    group: "dovecot_mail_user"
+    state: "directory"
+    mode: "0750"
+  tags: ["dovecot", "file"]
+
+###### Keys section ######
+
+- name: Create directory for dovecot keys
+  ansible.builtin.file:
+    path: "/etc/dovecot/keys"
+    owner: "root"
+    group: "dovecot"
+    state: "directory"
+    mode: "0750"
+  tags: ["dovecot", "file"]
+
+- name: Generate X25519 private key
+  community.crypto.openssl_privatekey:
+    path: "/etc/dovecot/keys/ecprivkey.pem"
+    type: "X25519"
+    owner: "root"
+    group: "dovecot"
+    mode: "0640"
+  tags: ["dovecot", "file"]
+
+- name: Generate public key from private key
+  community.crypto.openssl_publickey:
+    path: "/etc/dovecot/keys/ecpubkey.pem"
+    privatekey_path: "/etc/dovecot/keys/ecprivkey.pem"
+    owner: "root"
+    group: "dovecot"
+    mode: "0644"
+  tags: ["dovecot", "file"]
+
+###### Config section ######
+
+- name: Overwrite config files (not templates)
+  ansible.builtin.copy:
+    src: "{{ item }}"
+    dest: "/etc/dovecot/conf.d/{{ item }}"
+    owner: "root"
+    group: "root"
+    mode: "0600"
+  loop:
+    - "15-lda.conf"
+    - "15-mailboxes.conf"
+  no_log: true
+  tags: ["dovecot", "file"]
+
+- name: Overwrite config files (templates)
+  ansible.builtin.template:
+    src: "{{ item.source }}.j2"
+    dest: "{{ item.destination }}"
+    owner: "root"
+    group: "root"
+    mode: "0600"
+  loop:
+    - source: "10-ssl.conf"
+      destination: "/etc/dovecot/conf.d/10-ssl.conf"
+    - source: "10-master.conf"
+      destination: "/etc/dovecot/conf.d/10-master.conf"
+    - source: "10-logging.conf"
+      destination: "/etc/dovecot/conf.d/10-logging.conf"
+    - source: "10-auth.conf"
+      destination: "/etc/dovecot/conf.d/10-auth.conf"
+    - source: "10-mail.conf"
+      destination: "/etc/dovecot/conf.d/10-mail.conf"
+    - source: "20-lmtp.conf"
+      destination: "/etc/dovecot/conf.d/20-lmtp.conf"
+    - source: "20-imap.conf"
+      destination: "/etc/dovecot/conf.d/20-imap.conf"
+    - source: "20-managesieve.conf"
+      destination: "/etc/dovecot/conf.d/20-managesieve.conf"
+    - source: "90-sieve.conf"
+      destination: "/etc/dovecot/conf.d/90-sieve.conf"
+    - source: "dovecot-sql.conf.ext"
+      destination: "/etc/dovecot/dovecot-sql.conf.ext"
+  no_log: true
+  tags: ["dovecot", "file"]
+
+- name: Overwrite config files (templates)
+  ansible.builtin.template:
+    src: "{{ item.source }}.j2"
+    dest: "{{ item.destination }}"
+    owner: "root"
+    group: "root"
+    mode: "0600"
+  loop:
+    - source: "auth-sql.conf.ext"
+      destination: "/etc/dovecot/conf.d/auth-sql.conf.ext"
+  no_log: true
+  when: "ansible_distribution_major_version == '26'"
+  tags: ["dovecot", "file"]
+
+- name: Make dir for sieve scripts
+  ansible.builtin.file:
+    path: "/etc/dovecot/sieve"
+    state: "directory"
+    owner: "root"
+    group: "dovecot"
+    mode: "0755"
+  tags: ["dovecot", "file"]
+
+- name: Make sieve script
+  ansible.builtin.copy:
+    dest: "/etc/dovecot/sieve/global_spam.sieve"
+    content: |
+      require ["fileinto", "mailbox"];
+      if header :is "X-Spam" "Yes" {
+          fileinto "Junk";
+          stop;
+      }
+    owner: "root"
+    group: "dovecot"
+    mode: "0644"
+  register: "sieve_script"
+  tags: ["dovecot", "file"]
+
+- name: Compile sieve script
+  ansible.builtin.command: "sievec /etc/dovecot/sieve/global_spam.sieve"
+  when: "sieve_script.changed"
+  tags: ["dovecot"]
+
+###### Handler section ######
+
+- name: Restart dovecot
+  ansible.builtin.service:
+    name: "dovecot"
+    state: "restarted"
+  tags: ["dovecot", "handler"]
+
+- name: Enable dovecot
+  ansible.builtin.service:
+    name: "dovecot"
+    enabled: true
+  tags: ["dovecot", "handler"]

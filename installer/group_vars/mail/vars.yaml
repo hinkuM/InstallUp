@@ -1,0 +1,225 @@
+#################################
+#                               #
+#        # Comment              #
+#        variable: "value"      #
+#                               #
+#################################
+# All credentials are stored in vault.yaml files which are encrypted using .vault_pass file
+
+
+####### System #######
+# Password that will be set as root password
+root_password: "{{ vault_root_password }}"
+# Name of the user that was created at the installation process of system (sudo user)
+new_admin_user: "mail_user"
+# Password for sudo user is stored in installer/host_vars/inventory_name/vault.yaml
+new_admin_password: "{{ vault_new_admin_password }}"
+# User used to connect to host using SSH
+ansible_user: "{{ new_admin_user }}"
+# Password used by ansible to execute sudo commands
+ansible_become_password: "{{ new_admin_password }}"
+
+####### MySQL #######
+# Root password for MySQL
+mysql_root_password: "{{ vault_mysql_root_password }}"
+# MySQL database name for roundcube
+# DO NOT CHANGE IT
+roundcube_db_name: "roundcube"
+# MySQL username for roundcube
+roundcube_db_username: "roundcube_user"
+# MySQL roundcube user's password
+roundcube_db_password: "{{ vault_roundcube_db_password }}"
+# MySQL database name used by dovecot
+db_name: "my_mails" # also .sql filename 
+# MySQL username used by dovecot
+# DID NOT TEST CHANGING IT
+db_username: "dovecot"
+# MySQL dovecot user's password
+db_password: "{{ vault_db_password }}"
+# MySQL database for credentials to log in into mail are held
+db_table_users: "mail_users"
+# MySQL database where all domains connected to users are held
+db_table_domains: "mail_domains"
+# List of databases to create/import on mail server
+# name - name of database to create
+# username - user which will get privileges to that database
+# password - password for that user
+# import - if true, script will copy .sql file and restore database from that, false -> skip
+# roundcube - populates database from file provided by roundcube
+databases:
+  - name: "{{ db_name }}"
+    username: "{{ db_username }}"
+    password: "{{ db_password }}"
+    import: true
+  - name: "{{ roundcube_db_name }}"
+    username: "{{ roundcube_db_username }}"
+    password: "{{ roundcube_db_password }}"
+    roundcube: true
+
+####### Logrotate #######
+# Name of file template that contains all logrotate rules
+logrotate_file: "mail"
+
+####### Iptables #######
+# Sets which ports are allowed on specific host using iptables
+# input   - list of ports allowed to enter
+# output  - list of ports allowed to leave
+# special - list of ports with special conditions
+#     action      - direction to ACCEPT ["INPUT", "OUTPUT"]
+#     protocol    - what protocol should this port use ["udp", "tcp", null] not adding "protocol" key to object will automatically set it to tcp
+#     source      - which host is allowed as source
+#     destination - which host is allowed as destination
+#     port        - which port to use these conditions on
+ports:
+  input:
+    - "25"
+    - "80"
+    - "443"
+    - "587"
+    - "993"
+    - "{{ ssh_port }}"
+  output:
+    - "25"
+    - "80"
+    - "443"
+    - "587"
+    - "993"
+    - "1514"
+    - "1515"
+    - "3100"
+    - "{{ ssh_port }}"
+    - "9090"
+    - "12345"
+  special:
+    - action: OUTPUT
+      source: "{{ servers.mail.first }}.{{ domains.main.name }}"
+      destination: "{{ servers.logs.first }}.{{ domains.main.name }}"
+      port: "3310"
+    - action: OUTPUT
+      source: "{{ servers.mail.first }}.{{ domains.main.name }}"
+      destination: "{{ servers.logs.first }}.{{ domains.main.name }}"
+      port: "7357"
+
+####### Alloy #######
+# List of files that alloy should monitor and send to loki
+# path  - absolute path to file
+# name  - name used to label logs from that file, used in grafana query
+# owner - user which should own these files, used for logrotate so privileges don't break
+alloy_files:
+  - path: "/var/log/mail.log"
+    name: "postfix"
+  - path: "/var/log/dovecot.log"
+    name: "dovecot"
+  - path: "/var/log/fail2ban.log"
+    name: "fail2ban"
+  - path: "/var/log/{{ php_version }}-fpm.log"
+    name: "php"
+  - path: "/var/log/mysql/error.log"
+    name: "mysql"
+    owner: "mysql"
+  - path: "/var/log/redis/redis-server.log"
+    name: "redis"
+    owner: "redis"
+  - path: "/var/log/letsencrypt/letsencrypt.log"
+    name: "letsencrypt"
+  - path: "/var/log/nginx/error.log"
+    name: "nginx-error"
+    owner: "www-data"
+  - path: "/var/log/nginx/access.log"
+    name: "nginx-access"
+    owner: "www-data"
+  - path: "/var/log/roundcube/errors.log"
+    name: "roundcube-errors"
+    owner: "www-data"
+  - path: "/var/log/roundcube/password.log"
+    name: "roundcube-password"
+    owner: "www-data"
+  - path: "/var/log/roundcube/sendmail.log"
+    name: "roundcube-sendmail"
+    owner: "www-data"
+  - path: "/var/log/roundcube/twofactor_gauthenticator.log"
+    name: "roundcube-2fa"
+    owner: "www-data"
+  - path: "/var/log/rspamd/rspamd.log"
+    name: "rspamd"
+    owner: "_rspamd"
+  - path: "/var/log/files_backup.log"
+    name: "backup-files"
+    owner: "{{ new_admin_user }}"
+
+####### Dovecot #######
+# Use TLS based on certificates for mails (sending)
+dovecot_ssl: "required"
+# Proxy server for postfix service (FQDN, IP, MX record or null)
+relay_host: ""
+# Directory where all mails are stored
+mail_path: "/path/to/mails"
+
+####### Rspamd #######
+# Rspamd web UI read only user's password
+spamd_read_only_password: "{{ vault_rspamd_read_only_password }}" 
+# Rspamd web UI full access user's password
+rspamd_admin_password: "{{ vault_rspamd_admin_password }}"
+
+####### Wazuh #######
+# Wazuh's group to which all pcs in mail group should be added
+wazuh_group: "mail"
+
+####### Backup #######
+# Name of script for backups of all mails (need to match file name in installer/roles/backup/templates/)
+backup_filename: "backup_mail"
+
+#/\/\/\/\/\/\//\/\/\/\/\/\//\/\/\/\/\/\//\/\/\/\/\/\//\/\/\/\/\/\//\/\/\/\/\/\/#
+
+####### Packages #######
+# Below are packages used by all groups
+# apt install is using values below
+
+
+#postfix
+postfix: "postfix"
+postfix_mysql: "postfix-mysql"
+postfix_pcre: "postfix-pcre"
+
+#roundcube
+roundcube: "roundcube"
+roundcube_plugins: "roundcube-plugins"
+aspell: "aspell"
+aspell_pl: "aspell-pl"
+
+#rspamd
+rspamd: "rspamd"
+
+#Nginx
+nginx: "nginx"
+
+#PHP
+php_fpm: "{{ php_version }}-fpm"
+php_pear: "{{ php_version }}-pear"
+php_cli: "{{ php_version }}-cli"
+php_mysql: "{{ php_version }}-mysql"
+php_mbstring: "{{ php_version }}-mbstring"
+php_intl: "{{ php_version }}-intl"
+php_xml: "{{ php_version }}-xml"
+php_curl: "{{ php_version }}-curl"
+php_zip: "{{ php_version }}-zip"
+php_gd: "{{ php_version }}-gd"
+php_pspell: "{{ php_version }}-pspell"
+
+#Fail2ban
+fail2ban: "fail2ban"
+
+#Redis
+redis_server: "redis-server"
+
+#Dovecot
+composer: "composer"
+dovecot_core: "dovecot-core"
+dovecot_mysql: "dovecot-mysql"
+dovecot_imapd: "dovecot-imapd"
+dovecot_lmtpd: "dovecot-lmtpd"
+dovecot_sieve: "dovecot-sieve"
+dovecot_managesieved: "dovecot-managesieved"
+
+#Misc
+debconf_utils: "{{ debconf }}-utils"

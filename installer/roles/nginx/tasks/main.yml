@@ -1,0 +1,80 @@
+###### Apt section ######
+
+- name: Install nginx
+  ansible.builtin.apt:
+    name: "{{ nginx }}"
+  tags: ["nginx", "install"]
+
+###### Environment section ######
+
+- name: Ensure nginx directiories exists
+  ansible.builtin.file:
+    path: "{{ item }}"
+    recurse: true
+    state: "directory"
+    owner: "root"
+    group: "root"
+    mode: "0644"
+  loop:
+    - "/etc/nginx/sites-available"
+    - "/etc/nginx/sites-enabled"
+    - "/etc/nginx/snippets"
+  tags: ["nginx", "file"]
+
+###### Config section ######
+
+- name: Overwrite nginx configuration files
+  ansible.builtin.copy:
+    src: "{{ item.source }}"
+    dest: "{{ item.destination }}"
+    owner: "root"
+    group: "root"
+    mode: "0644"
+  loop:
+    - source: "fastcgi-php.conf"
+      destination: "/etc/nginx/snippets/fastcgi-php.conf"
+    - source: "fastcgi.conf"
+      destination: "/etc/nginx/fastcgi.conf"
+    - source: "nginx.conf"
+      destination: "/etc/nginx/nginx.conf"
+    - source: "stub_status.conf"
+      destination: "/etc/nginx/conf.d/stub_status.conf"
+  no_log: true
+  tags: ["nginx", "file"]
+  
+- name: Overwrite the default file
+  ansible.builtin.template:
+    src: "default.j2"
+    dest: "/etc/nginx/sites-available/default"
+    owner: "root"
+    group: "root"
+    mode: "0644"
+  no_log: true
+  tags: ["nginx", "file"]
+
+###### Cleanup section ######
+
+- name: Purge apache2
+  ansible.builtin.apt:
+    name: "apache2"
+    state: "absent"
+  tags: ["nginx"]
+
+- name: Install nginx exporter
+  ansible.builtin.import_tasks:
+    file: "exporter.yaml"
+  tags: ["nginx"]
+
+###### Handler section ######
+
+- name: Restart nginx
+  ansible.builtin.service:
+    name: "nginx"
+    state: "restarted"
+  tags: ["nginx", "handler"]
+
+- name: Enable nginx
+  ansible.builtin.service:
+    name: "nginx"
+    enabled: true
+  tags: ["nginx", "handler"]

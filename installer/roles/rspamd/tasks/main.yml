@@ -1,0 +1,199 @@
+###### Repository section ######
+
+- name: Check if rspamd is already installed
+  ansible.builtin.package_facts:
+    manager: "auto"
+  tags: ["rspamd", "install"]
+
+- name: Download GPG key 
+  ansible.builtin.get_url: 
+    url: "https://rspamd.com/apt-stable/gpg.key"
+    dest: "/etc/apt/keyrings/rspamd.pgp"
+    mode: "0644" 
+    force: false
+  when: 
+    - "'rspamd' not in ansible_facts.packages"
+    - "ansible_distribution_major_version == '24'"
+  tags: ["rspamd", "install"]
+
+- name: Convert rspamd PGP key to GPG keyring
+  ansible.builtin.command: "gpg --dearmor -o /etc/apt/keyrings/rspamd.gpg /etc/apt/keyrings/rspamd.pgp"
+  args:
+    creates: "/etc/apt/keyrings/rspamd.gpg"
+  when: 
+    - "'rspamd' not in ansible_facts.packages"
+    - "ansible_distribution_major_version == '24'"
+  tags: ["rspamd", "install"]
+
+# change when rspamd releases new version for ubuntu 26
+- name: Add repository
+  ansible.builtin.apt_repository:
+    repo: "deb [signed-by=/etc/apt/keyrings/rspamd.gpg] https://rspamd.com/apt-stable/ {{ 'noble' if ansible_distribution_major_version == '26' else ansible_facts.distribution_release }} main"
+    filename: "rspamd"
+    state: "present"
+    update_cache: true
+  when: 
+    - "'rspamd' not in ansible_facts.packages"
+    - "ansible_distribution_major_version == '24'"
+  tags: ["rspamd", "install"]
+
+###### Apt section ######
+
+- name: Update apt cache
+  ansible.builtin.apt:
+    update_cache: true
+  when: 
+    - "'rspamd' not in ansible_facts.packages"
+    - "ansible_distribution_major_version == '24'"
+  tags: ["rspamd", "install"]
+
+- name: Install rspamd
+  ansible.builtin.apt:
+    name: "{{ rspamd }}"
+    state: "present"
+  tags: ["rspamd", "install"]
+
+###### Config section ######
+
+- name: Generate Rspamd password hash
+  ansible.builtin.command:
+    cmd: 'rspamadm pw --encrypt -p "{{ spamd_read_only_password }}"'
+  register: rspamd_hashed_password_output
+  changed_when: false
+  no_log: true
+  tags: ["rspamd"]
+
+- name: Generate Rspamd enable password hash
+  ansible.builtin.command:
+    cmd: 'rspamadm pw --encrypt -p "{{ rspamd_admin_password }}"'
+  register: rspamd_hashed_enable_output
+  changed_when: false
+  no_log: true
+  tags: ["rspamd"]
+
+- name: Create config files in local.d (not templates)
+  ansible.builtin.copy:
+    src: "{{ item }}"
+    dest: "/etc/rspamd/local.d/{{ item }}"
+    owner: "root"
+    group: "_rspamd"
+    mode: "0644"
+  loop:
+    - "actions.conf"
+    - "groups.conf"
+    - "multimap.conf"
+    - "redis.conf"
+    - "worker-proxy.inc"
+  no_log: true
+  tags: ["rspamd", "file"]
+
+- name: Create config files in local.d (templates)
+  ansible.builtin.template:
+    src: "{{ item }}.j2"
+    dest: "/etc/rspamd/local.d/{{ item }}"
+    owner: "root"
+    group: "_rspamd"
+    mode: "0644"
+  loop:
+    - "dkim_signing.conf"
+    - "antivirus.conf"
+    - "worker-controller.inc"
+  no_log: true
+  tags: ["rspamd", "file"]
+
+- name: Create config files in main dir
+  ansible.builtin.copy:
+    src: "{{ item }}"
+    dest: "/etc/rspamd/{{ item }}"
+    owner: "root"
+    group: "_rspamd"
+    mode: "0644"
+  loop: 
+    - "logging.inc"
+  tags: ["rspamd", "file"]
+
+- name: Create config files in main dir
+  ansible.builtin.template:
+    src: "{{ item }}.j2"
+    dest: "/etc/rspamd/{{ item }}"
+    owner: "root"
+    group: "_rspamd"
+    mode: "0644"
+  loop: 
+    - "whitelist_domains.map"
+  no_log: true
+  tags: ["rspamd", "file"]
+
+###### DKIM keys section ######
+
+- name: Create dir for DKIM keys
+  ansible.builtin.file:
+    path: "/etc/rspamd/dkim/"
+    state: "directory"
+    owner: "_rspamd"
+    group: "_rspamd"
+    mode: "0750"
+  tags: ["rspamd", "file"]
+
+- name: Generate DKIM key for multiple domains
+  ansible.builtin.shell: >
+    rspamadm dkim_keygen -b 2048 -s {{ item.dkim_selector }}
+    -d {{ item.domain }}
+    -k /etc/rspamd/dkim/{{ item.domain }}.{{ item.dkim_selector }}.key
+    > /etc/rspamd/dkim/{{ item.domain }}.{{ item.dkim_selector }}.txt
+  args:
+    creates: "/etc/rspamd/dkim/{{ item.domain }}.{{ item.dkim_selector }}.key"
+  loop: "{{ cert_and_mail_data }}"
+  tags: ["rspamd"]
+
+- name: Set ownership of DKIM keys
+  ansible.builtin.file:
+    path: "/etc/rspamd/dkim/{{ item.domain }}.{{ item.dkim_selector }}.key"
+    owner: "_rspamd"
+    group: "_rspamd"
+    mode: "0440"
+  loop: "{{ cert_and_mail_data }}"
+  no_log: true
+  tags: ["rspamd", "file"]
+
+- name: Set ownership of DKIM txt files
+  ansible.builtin.file:
+    path: "/etc/rspamd/dkim/{{ item.domain }}.{{ item.dkim_selector }}.txt"
+    owner: "_rspamd"
+    group: "_rspamd"
+    mode: "0440"
+  loop: "{{ cert_and_mail_data }}"
+  no_log: true
+  tags: ["rspamd", "file"]
+
+- name: Create directory on controller pc for certificates
+  ansible.builtin.file:
+    path: "{{ playbook_dir }}/DKIM_values"
+    state: "directory"
+    mode: "0750"
+  delegate_to: localhost
+  become: false
+  tags: ["rspamd", "file"]
+
+- name: Fetch client certificates to controller
+  ansible.builtin.fetch:
+    src: "/etc/rspamd/dkim/{{ item.domain }}.{{ item.dkim_selector }}.txt"
+    dest: "{{ playbook_dir }}/DKIM_values/{{ item.domain }}.{{ item.dkim_selector }}.txt"
+    flat: true
+  loop: "{{ cert_and_mail_data }}"
+  no_log: true
+  tags: ["rspamd", "file"]
+
+###### Handler section ######
+
+- name: Restart rspamd
+  ansible.builtin.service:
+    name: "rspamd"
+    state: "restarted"
+  tags: ["rspamd", "handler"]
+
+- name: Enable rspamd
+  ansible.builtin.service:
+    name: "rspamd"
+    enabled: true
+  tags: ["rspamd", "handler"]

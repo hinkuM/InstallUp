@@ -1,0 +1,100 @@
+###### Repository section ######
+
+- name: Clean up duplicate legacy repository files causing global apt cache errors
+  ansible.builtin.file:
+    path: "/etc/apt/sources.list.d/archive_ubuntu_com_ubuntu.list"
+    state: absent
+  tags: ["alloy", "install"]
+
+- name: Purge potentially corrupted legacy Grafana GPG files
+  ansible.builtin.file:
+    path: "/etc/apt/keyrings/grafana.gpg"
+    state: absent
+  tags: ["alloy", "install"]
+
+- name: Check if Alloy is already installed
+  ansible.builtin.package_facts:
+    manager: "auto"
+  tags: ["alloy", "install"]
+
+- name: Download official Grafana GPG key cleanly as an armored file
+  ansible.builtin.get_url:
+    url: "https://apt.grafana.com/gpg-full.key"
+    dest: "/etc/apt/keyrings/grafana.asc"
+    mode: "0644"
+  when: "'alloy' not in ansible_facts.packages"
+  tags: ["alloy", "install"]
+
+- name: Add Grafana apt repository
+  ansible.builtin.apt_repository:
+    repo: "deb [signed-by=/etc/apt/keyrings/grafana.asc] https://apt.grafana.com stable main"
+    state: "present"
+    filename: "grafana"
+  when: "'alloy' not in ansible_facts.packages"
+  tags: ["alloy", "install"]
+
+###### Apt section ######
+
+- name: Update apt cache
+  ansible.builtin.apt:
+    update_cache: true
+  when: "'alloy' not in ansible_facts.packages"
+  tags: ["alloy", "install"]
+
+- name: Install alloy
+  ansible.builtin.apt:
+    name: "{{ alloy }}"
+    state: "present"
+  when: "'alloy' not in ansible_facts.packages"
+  tags: ["alloy", "install"]
+
+###### Config section ######
+
+- name: Overwrite alloy config
+  ansible.builtin.template:
+    src: "config.alloy.j2"
+    dest: "/etc/alloy/config.alloy"
+    owner: "root"
+    group: "alloy"
+    mode: "0640"
+  no_log: true
+  tags: ["alloy", "file"]
+
+- name: Remove grafana repository
+  ansible.builtin.apt_repository:
+    repo: "deb [signed-by=/etc/apt/keyrings/grafana.asc] https://apt.grafana.com stable main"
+    state: "absent"
+    filename: "grafana"
+  when: "'alloy' in ansible_facts.packages"
+  tags: ["alloy", "install"]
+
+- name: Set ownership for alloy certs
+  ansible.builtin.file:
+    path: "{{ clients_cert_dir }}"
+    owner: "root"
+    group: "alloy"
+    recurse: true
+  no_log: true
+  tags: ["alloy", "file"]
+
+- name: Add user to multiple groups
+  ansible.builtin.user:
+    name: "alloy"
+    groups: "adm,client_certs"
+    append: true
+  no_log: true
+  tags: ["alloy"]
+
+###### Handler section ######
+
+- name: Restart alloy
+  ansible.builtin.service:
+    name: "alloy"
+    state: restarted
+  tags: ["alloy", "handler"]
+
+- name: Enable alloy
+  ansible.builtin.service:
+    name: "alloy"
+    enabled: true
+  tags: ["alloy", "handler"]

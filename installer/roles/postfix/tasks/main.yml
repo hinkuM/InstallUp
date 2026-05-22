@@ -1,0 +1,106 @@
+###### Apt section ######
+
+- name: Set postfix debconf selections
+  ansible.builtin.shell: |
+    echo "postfix postfix/main_mailer_type string 'Internet Site'" | debconf-set-selections
+    echo "postfix postfix/mailname string {{ domains.main.name }}" | debconf-set-selections
+    echo "postfix postfix/relayhost string {{ relay_host }}" | debconf-set-selections
+  tags: ["postfix", "install"]
+
+- name: Install Postfix and plugins
+  ansible.builtin.apt:
+    name: 
+      - "{{ postfix }}"
+      - "{{ postfix_mysql }}"
+      - "{{ postfix_pcre }}"
+  tags: ["postfix", "install"]
+
+###### Config section ######
+
+- name: Create directory for postfix sni map
+  ansible.builtin.file:
+    path: "/etc/postfix/tls"
+    owner: "root"
+    group: "root"
+    state: "directory"
+    mode: "0640"
+  tags: ["postfix", "file"]
+
+- name: Merge privkey + fullchain for all SNI domains
+  shell: |
+    cat /etc/letsencrypt/live/{{ item.cert_domain }}/privkey.pem /etc/letsencrypt/live/{{ item.cert_domain }}/fullchain.pem > /etc/postfix/tls/{{ item.domain }}.pem
+  loop: "{{ cert_and_mail_data }}"
+  tags: ["postfix", "file"]
+
+- name: Overwrite config templates
+  ansible.builtin.template:
+    src: "{{ item.source }}"
+    dest: "/etc/postfix/{{ item.destination }}"
+    owner: "root"
+    group: "root"
+    mode: "0644"
+  loop:
+    - source: "local-transport.j2"
+      destination: "local-transport.pcre"
+    - source: "main.cf.j2"
+      destination: "main.cf"
+    - source: "master.cf.j2"
+      destination: "master.cf"
+    - source: "mysql-sender-login.cf.j2"
+      destination: "mysql-sender-login.cf"
+    - source: "mysql-virtual-domains.cf.j2"
+      destination: "mysql-virtual-domains.cf"
+    - source: "mysql-virtual-mailbox-maps.cf.j2"
+      destination: "mysql-virtual-mailbox-maps.cf"
+    - source: "sender-transport.j2"
+      destination: "sender-transport.pcre"
+    - source: "sni-map.j2"
+      destination: "sni-map.map"
+  no_log: true
+  tags: ["postfix", "file"]
+
+- name: Rebuild postfix maps
+  command: "postmap -F hash:/etc/postfix/{{ item }}"
+  loop:
+    - "sni-map.map"
+  tags: ["postfix", "file"]
+
+- name: Overwrite config files
+  ansible.builtin.copy:
+    src: "{{ item }}"
+    dest: "/etc/postfix/{{ item }}"
+    owner: "root"
+    group: "root"
+    mode: "0644"
+  loop:
+    - "list_unsub_header"
+  tags: ["postfix", "file"]
+
+- name: Ensure resolv.conf in posftix is owned by root
+  ansible.builtin.file:
+    path: "/var/spool/postfix/etc/resolv.conf"
+    owner: "root"
+    group: "root"
+    mode: "0644"
+  tags: ["postfix", "file"]
+
+###### Handler & Log section ######
+
+- name: Restart Postfix
+  ansible.builtin.service:
+    name: "postfix"
+    state: "restarted"
+  tags: ["postfix", "handler"]
+
+- name: Enable Postfix
+  ansible.builtin.service:
+    name: "postfix"
+    enabled: true
+  tags: ["postfix", "handler"]
+
+- name: Set Postfix log file
+  ansible.builtin.command: |
+    postfix stop && postconf maillog_file=/var/log/mail.log && postfix start
+  tags: ["postfix", "install"]
+
+

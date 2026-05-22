@@ -1,0 +1,68 @@
+# ---------------------------------- Cluster -----------------------------------
+
+cluster.name: {{ logs_cluster_name }}
+
+# ------------------------------------ Node ------------------------------------
+
+node.name: {{ servers.logs.first }}.{{ domains.main.name }}
+node.max_local_storage_nodes: 1
+
+# ----------------------------------- Paths ------------------------------------
+
+path.data: /var/lib/wazuh-indexer
+path.logs: /var/log/wazuh-indexer
+
+# ----------------------------------- Memory -----------------------------------
+
+bootstrap.memory_lock: true
+
+# ---------------------------------- Network -----------------------------------
+
+network.host: 0.0.0.0
+network.publish_host: {{ servers.logs.first }}.{{ domains.main.name }}
+
+# --------------------------------- Discovery ----------------------------------
+
+discovery.type: single-node
+
+# ------------------------------------ SSL -------------------------------------
+
+plugins.security.ssl.http.enabled: true
+plugins.security.ssl.http.pemcert_filepath: "/etc/wazuh-indexer/certs/server-crt.pem"
+plugins.security.ssl.http.pemkey_filepath: "/etc/wazuh-indexer/certs/server-key.pem"
+plugins.security.ssl.http.pemtrustedcas_filepath: "/etc/wazuh-indexer/certs/root-ca.pem"
+
+plugins.security.ssl.transport.pemcert_filepath: "/etc/wazuh-indexer/certs/server-crt.pem"
+plugins.security.ssl.transport.pemkey_filepath: "/etc/wazuh-indexer/certs/server-key.pem"
+plugins.security.ssl.transport.pemtrustedcas_filepath: "/etc/wazuh-indexer/certs/root-ca.pem"
+
+plugins.security.ssl.transport.enforce_hostname_verification: true
+plugins.security.allow_unsafe_democertificates: false
+
+################## should be false after first startup ###################
+plugins.security.allow_default_init_securityindex: true
+##########################################################################
+
+plugins.security.ssl.http.enabled_ciphers:
+  - "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256"
+  - "TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384"
+  - "TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256"
+  - "TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384"
+plugins.security.ssl.http.enabled_protocols:
+  - "TLSv1.2"
+
+plugins.security.authcz.admin_dn:
+ - "{{ admin_subject_config_file }}"
+
+plugins.security.nodes_dn:
+- "{{ server_subject_config_file }}"
+
+plugins.security.restapi.roles_enabled: [all_access, security_rest_api_access]
+plugins.security.enable_snapshot_restore_privilege: true
+plugins.security.check_snapshot_restore_write_privileges: true
+
+plugins.security.system_indices.enabled: true
+plugins.security.system_indices.indices: [".opendistro-alerting-config", ".opendistro-alerting-alert*", ".opendistro-anomaly-results*", ".opendistro-anomaly-detector*", ".opendistro-anomaly-checkpoints", ".opendistro-anomaly-detection-state", ".opendistro-reports-*", ".opendistro-notifications-*", ".opendistro-notebooks", ".opensearch-observability", ".opendistro-asynchronous-search-response*", ".replication-metadata-store"]
+
+### Option to allow Filebeat-oss 7.10.2 to work ###
+compatibility.override_main_response_version: true

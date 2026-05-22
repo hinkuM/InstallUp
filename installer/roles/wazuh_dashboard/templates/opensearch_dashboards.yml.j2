@@ -1,0 +1,38 @@
+server.port: "{{ wazuh_dashboard_port }}"
+server.host: "0.0.0.0"
+server.name: "{{ servers.logs.first }}.{{ domains.main.name }}"
+
+opensearch.hosts: "https://{{ servers.logs.first }}.{{ domains.main.name }}:9200"
+
+opensearch.ssl.certificate: "{{ wazuh_indexer_cert_dir }}/server-crt.pem"
+opensearch.ssl.key: "{{ wazuh_indexer_cert_dir }}/server-key.pem"
+opensearch.ssl.certificateAuthorities: "{{ root_ca_dir }}/root-ca.pem"
+opensearch.ssl.verificationMode: full
+
+opensearch.username: "kibanaserver"
+opensearch.password: "{{ wazuh_kibanaserver_password }}"
+
+opensearch.logQueries: true
+
+opensearch.requestHeadersAllowlist: [authorization, securitytenant]
+
+opensearch_security.multitenancy.enabled: true
+opensearch_security.multitenancy.tenants.preferred: [Private, Global]
+opensearch_security.readonly_mode.roles: [kibana_read_only]
+
+opensearch_security.cookie.secure: true
+opensearch_security.cookie.ttl: 900000
+opensearch_security.session.ttl: 900000
+opensearch_security.session.keepalive: true
+
+server.ssl.enabled: true
+server.ssl.certificate: "{{ wazuh_dashboard_cert_dir }}/server-crt.pem"
+server.ssl.key: "{{ wazuh_dashboard_cert_dir }}/server-key.pem"
+
+uiSettings.overrides.defaultRoute: /app/wz-home
+
+# Enables you to specify a file where OpenSearch Dashboards stores log output.
+
+logging.verbose: false
+logging.quiet: true
+logging.dest: "/var/log/wazuh-dashboard.log"

@@ -1,0 +1,48 @@
+#!/bin/bash
+
+DISK_PATH=$1;
+LONGHORN_FOLDER=$2;
+
+if [ -z "$LONGHORN_FOLDER" ]; then
+  echo "Error: LONGHORN_FOLDER is required."
+  exit 1
+fi
+
+if [ -z "$DISK_PATH" ]; then
+  echo "Error: DISK_PATH is required."
+  exit 1
+fi
+
+# 3. Check if DISK_PATH actually exists as a directory
+if [ -d "$DISK_PATH" ]; then
+  echo "Error: $DISK_PATH already exists."
+  exit 1
+fi
+
+# 4. Check if LONGHORN_FOLDER actually exists as a directory
+if [ -d "$LONGHORN_FOLDER" ]; then
+  echo "Error: $LONGHORN_FOLDER already exists"
+  exit 1
+fi
+
+printf "\n##########################################\n"
+printf "Disk which will be mounted: $DISK_PATH\n"
+printf "Folder for longhorn with that disk: {{ kubernetes_data_path }}/$LONGHORN_FOLDER\n"
+printf "###########################################\n\n"
+
+
+printf "mkdir -p "{{ kubernetes_data_path }}/$LONGHORN_FOLDER"\n"
+printf "sudo wipefs -a $DISK_PATH\n"
+printf "sudo fdisk $DISK_PATH\n\n"
+
+printf "Then press "g" for GPT partition, "n" for new parition, then press "enter" 3 times to create partition on entire free space, then press "w" to exit and save\n\n"
+
+printf "sudo mkfs.ext4 $DISK_PATH \n\tand add partition number to disk path at the end like this /dev/sda1\n\n"
+printf "sudo mount $DISK_PATH {{ kubernetes_data_path }}/$LONGHORN_FOLDER \n\t( + partition number)\n\n"
+
+printf "ls /dev/disk/by-uuid/ -la\n"
+printf "sudo echo /dev/disk/by-uuid/uuid-of-disk-here "{{ kubernetes_data_path }}/$LONGHORN_FOLDER" ext4 defaults 0 2 >> /etc/fstab"
+
+printf "\n\n"
+
+exit 1

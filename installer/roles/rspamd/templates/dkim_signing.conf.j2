@@ -1,0 +1,17 @@
+# /etc/rspamd/local.d/dkim_signing.conf
+
+enabled = true;
+
+domain {
+  {% for item in cert_and_mail_data %}
+  "{{ item.domain }}" {
+    selector = "{{ item.dkim_selector }}";
+    path = "/etc/rspamd/dkim/{{ item.domain }}.{{ item.dkim_selector }}.key";
+  }
+  {% endfor %}
+}
+
+sign_authenticated = true;
+sign_local = true;
+
+use_esld = true;

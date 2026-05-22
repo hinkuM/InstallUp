@@ -1,0 +1,32 @@
+sql_driver = mysql
+
+mysql 127.0.0.1 {
+  user     = {{ db_username }}
+  password = {{ db_password }}
+  dbname   = {{ db_name }}
+}
+
+passdb sql  {
+    default_password_scheme = SHA512-CRYPT
+
+    query = SELECT {{ db_table_users }}.password, CONCAT({{ db_table_users }}.username, '@', {{ db_table_domains }}.domain) AS user \
+        FROM {{ db_table_users }} \
+        INNER JOIN {{ db_table_domains }} ON {{ db_table_domains }}.id_domain = {{ db_table_users }}.domain \
+        WHERE {{ db_table_users }}.username = '%{user | username}' \
+        AND {{ db_table_domains }}.domain = '%{user | domain}' \
+        AND active = 'Y';
+}
+
+userdb sql {
+    query = SELECT CONCAT('maildir:{{ mail_path }}/', {{ db_table_domains }}.domain, '/', {{ db_table_users }}.username) AS mail, 5000 AS uid, 5000 AS gid \
+            FROM {{ db_table_users }} \
+            INNER JOIN {{ db_table_domains }} ON {{ db_table_domains }}.id_domain = {{ db_table_users }}.domain \
+            WHERE {{ db_table_users }}.username = '%{user | username}' \
+            AND {{ db_table_domains }}.domain = '%{user | domain}' \
+            AND active = 'Y';
+
+   iterate_query = SELECT CONCAT({{ db_table_users }}.username, '@', {{ db_table_domains }}.domain) AS user \
+                    FROM {{ db_table_users }} \
+                    INNER JOIN {{ db_table_domains }} ON {{ db_table_domains }}.id_domain = {{ db_table_users }}.domain \
+                    WHERE active = 'Y';
+}

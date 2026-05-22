@@ -1,0 +1,212 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: wazuh-daemonset
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: wazuh-agent
+  namespace: wazuh-daemonset
+spec:
+  selector:
+    matchLabels:
+      app: wazuh-agent
+  template:
+    metadata:
+      labels:
+        app: wazuh-agent
+    spec:
+      serviceAccountName: default
+      terminationGracePeriodSeconds: 20
+
+      #        INIT CONTAINERS
+      initContainers:
+        # 1) Clean stale PID / lock files
+        - name: cleanup-ossec-stale
+          image: busybox:1.36
+          imagePullPolicy: IfNotPresent
+          command: ["/bin/sh", "-lc"]
+          args:
+            - |
+              set -e
+              echo "[init] Cleaning old locks..."
+              mkdir -p /agent/var/run /agent/queue/ossec
+              rm -f /agent/var/run/*.pid || true
+              rm -f /agent/queue/ossec/*.lock || true
+          volumeMounts:
+            - name: ossec-data
+              mountPath: /agent
+        # 2) Seed /var/ossec into hostPath (first run only)
+        - name: seed-ossec-tree
+          image: wazuh/wazuh-agent:4.14.5
+          imagePullPolicy: IfNotPresent
+          command: ["/bin/sh", "-lc"]
+          args:
+            - |
+              set -e
+              echo "[init] Checking if seeding is required..."
+              if [ ! -d /agent/bin ]; then
+                echo "[init] Seeding /var/ossec to hostPath..."
+                tar -C /var/ossec -cf - . | tar -C /agent -xpf -
+              else
+                echo "[init] Existing data found, skipping seed"
+              fi
+          volumeMounts:
+            - name: ossec-data
+              mountPath: /agent
+        # 3) Fix ownership/permissions
+        - name: fix-permissions
+          image: busybox:1.36
+          imagePullPolicy: IfNotPresent
+          command: ["/bin/sh", "-lc"]
+          args:
+            - |
+              set -e
+              echo "[init] Fixing permissions..."
+              for d in etc logs queue var rids tmp "active-response"; do
+                [ -d "/agent/$d" ] && chown -R 999:999 "/agent/$d"
+              done
+              chown -R 0:0 /agent/bin /agent/lib || true
+              find /agent/bin -type f -exec chmod 0755 {} \; || true
+          volumeMounts:
+            - name: ossec-data
+              mountPath: /agent
+        # 4) Write ossec.conf with PASSWORD ENROLLMENT
+        - name: write-ossec-config
+          image: busybox:1.36
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: WAZUH_MANAGER
+              value: "{{ servers.logs.first }}.{{ domains.main.name }}"
+            - name: WAZUH_PORT
+              value: "1514"
+            - name: WAZUH_PROTOCOL
+              value: "tcp"
+            - name: WAZUH_REGISTRATION_SERVER
+              value: "{{ servers.logs.first }}.{{ domains.main.name }}"
+            - name: WAZUH_REGISTRATION_PORT
+              value: "1515"
+            - name: NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+          command: ["/bin/sh", "-lc"]
+          args:
+            - |
+              set -e
+              echo "[init] Writing ossec.conf..."
+              mkdir -p /agent/etc
+              cat > /agent/etc/ossec.conf <<EOF
+              <ossec_config>
+                <client>
+                  <server>
+                    <address>${WAZUH_MANAGER}</address>
+                    <port>${WAZUH_PORT}</port>
+                    <protocol>${WAZUH_PROTOCOL}</protocol>
+                  </server>
+
+                  <force_reconnect_interval>5min</force_reconnect_interval>
+                  <auto_restart>yes</auto_restart>
+                  <notify_time>20</notify_time>
+                  <time-reconnect>60</time-reconnect>
+
+                  <enrollment>
+                    <enabled>yes</enabled>
+                    <authorization_pass_path>/var/ossec/etc/authd.pass</authorization_pass_path>
+
+                    <groups>{{ wazuh_group }}</groups>
+
+                    <server_ca_path>/var/ossec/etc/root-ca.pem</server_ca_path>
+                    <agent_certificate_path>etc/agent.cert</agent_certificate_path>
+                    <agent_key_path>etc/agent.key</agent_key_path>
+
+                    <agent_name>${NODE_NAME}</agent_name>
+                    <manager_address>${WAZUH_REGISTRATION_SERVER}</manager_address>
+                    <port>${WAZUH_REGISTRATION_PORT}</port>
+                  </enrollment>
+                </client>
+              </ossec_config>
+              EOF
+              chown 999:999 /agent/etc/ossec.conf
+              chmod 0640 /agent/etc/ossec.conf
+          volumeMounts:
+            - name: ossec-data
+              mountPath: /agent
+
+        # 5) Copy authd.pass from Secret and fix ownership
+        - name: fix-authd-pass-perms
+          image: busybox:1.36
+          imagePullPolicy: IfNotPresent
+          command: ["/bin/sh", "-lc"]
+          args:
+            - |
+              set -e
+              echo "[init] Copying authd.pass from Secret..."
+              mkdir -p /agent/etc
+
+              cp /secret/authd.pass /agent/etc/authd.pass
+
+              cp /secret-certs/root-ca.pem /agent/etc/root-ca.pem
+              cp /secret-certs/client-crt.pem /agent/etc/agent.cert
+              cp /secret-certs/client-key.pem /agent/etc/agent.key
+
+              chown 0:999 /agent/etc/authd.pass /agent/etc/root-ca.pem /agent/etc/agent.cert /agent/etc/agent.key
+              chmod 0640 /agent/etc/authd.pass /agent/etc/root-ca.pem /agent/etc/agent.cert /agent/etc/agent.key
+              ls -l /agent/etc/authd.pass
+          volumeMounts:
+            - name: ossec-data
+              mountPath: /agent
+            - name: wazuh-authd-pass
+              mountPath: /secret/authd.pass
+              subPath: authd.pass
+              readOnly: true
+            - name: tls-certs
+              mountPath: /secret-certs
+              readOnly: true
+      #        MAIN CONTAINER
+      containers:
+        - name: wazuh-agent
+          image: wazuh/wazuh-agent:4.14.5
+          imagePullPolicy: IfNotPresent
+          command: ["/bin/sh", "-lc"]
+          args:
+            - |
+              set -e
+              ln -sf /var/ossec/etc/ossec.conf /etc/ossec.conf || true
+              exec /init
+          env:
+            - name: WAZUH_MANAGER
+              value: "{{ servers.logs.first }}.{{ domains.main.name }}"
+            - name: NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+          securityContext:
+            runAsUser: 0
+            allowPrivilegeEscalation: true
+            capabilities:
+              add: ["SETGID","SETUID"]
+          volumeMounts:
+            - name: varlog
+              mountPath: /var/log
+              readOnly: true
+            - name: ossec-data
+              mountPath: /var/ossec
+
+      #            VOLUMES
+      volumes:
+        - name: varlog
+          hostPath:
+            path: /var/log
+            type: Directory
+        - name: ossec-data
+          hostPath:
+            path: /var/lib/wazuh
+            type: DirectoryOrCreate
+        - name: wazuh-authd-pass
+          secret:
+            secretName: wazuh-authd-pass
+        - name: tls-certs
+          secret:
+            secretName: tls-certs

@@ -1,0 +1,391 @@
+###### Repository section ######
+
+- name: Check if Helm is already installed
+  ansible.builtin.package_facts:
+    manager: "auto"
+  tags: ["kubernetes", "install"]
+
+- name: Download and De-armor Helm GPG key
+  ansible.builtin.shell: 
+    cmd: "curl -fsSL https://packages.buildkite.com/helm-linux/helm-debian/gpgkey | gpg --dearmor -o /etc/apt/keyrings/helm.gpg"
+    creates: "/etc/apt/keyrings/helm.gpg"
+  when: "'helm' not in ansible_facts.packages"
+  tags: ["kubernetes", "install"]
+
+- name: Add Helm apt repository
+  ansible.builtin.apt_repository:
+    repo: "deb [signed-by=/etc/apt/keyrings/helm.gpg] https://packages.buildkite.com/helm-linux/helm-debian/any/ any main"
+    state: "present"
+    filename: "helm"
+  when: "'helm' not in ansible_facts.packages"
+  tags: ["kubernetes", "install"]
+
+###### Apt section ######
+
+- name: Update apt cache
+  ansible.builtin.apt:
+    update_cache: true
+  when: "'helm' not in ansible_facts.packages"
+  tags: ["kubernetes", "install"]
+
+- name: Install skopeo and helm for manual image download
+  ansible.builtin.apt:
+    name: 
+      - "{{ helm }}"
+      - "{{ python_kubernetes }}"
+      - "{{ python_openshift }}"
+      - "{{ python_yaml }}"
+      - "{{ skopeo }}"
+      - "{{ acl }}"
+  tags: ["kubernetes", "install"]
+
+###### Environment section ######
+
+- name: Create a dedicated k8s manager user
+  ansible.builtin.user:
+    name: "{{ kubernetes_admin }}"
+    password: "{{ kubernetes_admin_password | password_hash('sha512') }}"
+    shell: "/bin/bash"
+    groups: "sudo"
+    append: true
+  no_log: true
+  tags: ["kubernetes", "once"]
+
+- name: Create main directory for k8s
+  ansible.builtin.file:
+    path: "{{ kubernetes_stuff_path }}"
+    owner: "{{ kubernetes_admin }}"
+    group: "{{ kubernetes_admin }}"
+    mode: "0700"
+    state: "directory"
+  tags: ["kubernetes", "file"]
+
+- name: Create manifests directory for k8s
+  ansible.builtin.file:
+    path: "{{ kubernetes_manifests_path }}"
+    owner: "{{ kubernetes_admin }}"
+    group: "{{ kubernetes_admin }}"
+    mode: "0700"
+    state: "directory"
+  tags: ["kubernetes", "file"]
+
+###### Config section ######
+
+- name: Create kubeadm config
+  ansible.builtin.template:
+    src: "kubeadm-config.yaml.j2"
+    dest: "{{ kubernetes_stuff_path }}/kubeadm-config.yaml"
+    owner: "{{ kubernetes_admin }}"
+    group: "{{ kubernetes_admin }}"
+    mode: "0700"
+  no_log: true
+  tags: ["kubernetes", "file"]
+
+###### Kubernetes init section ######
+
+- name: Initialize the Kubernetes Cluster
+  ansible.builtin.command: "kubeadm init --config {{ kubernetes_stuff_path }}/kubeadm-config.yaml --node-name {{ control_plane }}"
+  args:
+    creates: "/etc/kubernetes/admin.conf"
+  tags: ["kubernetes", "install"]
+
+- name: Generate join command
+  ansible.builtin.command: "kubeadm token create --print-join-command"
+  register: "join_command_raw"
+  tags: ["kubernetes", "install"]
+
+- name: Set join command as a fact for the whole playbook
+  ansible.builtin.set_fact:
+    join_command: "{{ join_command_raw.stdout }}"
+  tags: ["kubernetes", "install"]
+
+- name: Create file with cluster join command 
+  ansible.builtin.copy:
+    content: "{{ join_command }}"
+    dest: "/tmp/join_command.sh"
+  no_log: true
+  tags: ["kubernetes"]
+
+- name: Fetch join command to localhost
+  ansible.builtin.fetch:
+    src: "/tmp/join_command.sh"
+    dest: "{{ playbook_dir }}/join_command.sh"
+    flat: true
+  tags: ["kubernetes"]
+
+- name: Remove server join command from master
+  ansible.builtin.file:
+    path: "/tmp/join_command.sh"
+    state: "absent"
+  no_log: true
+  tags: ["kubernetes"]
+
+###### Config section ######
+
+- name: Create .kube directory in user home
+  ansible.builtin.file:
+    path: "/home/{{ kubernetes_admin }}/.kube"
+    state: "directory"
+    owner: "{{ kubernetes_admin }}"
+    group: "{{ kubernetes_admin }}"
+    mode: "0700"
+  tags: ["kubernetes", "file"]
+
+- name: Copy admin.conf to user's config
+  ansible.builtin.copy:
+    src: /etc/kubernetes/admin.conf
+    dest: "/home/{{ kubernetes_admin }}/.kube/config"
+    remote_src: true
+    owner: "{{ kubernetes_admin }}"
+    group: "{{ kubernetes_admin }}"
+    mode: "0700"
+  no_log: true
+  tags: ["kubernetes", "file"]
+
+- name: Add kubectl alias and completion to bashrc
+  ansible.builtin.blockinfile:
+    path: "/home/{{ kubernetes_admin }}/.bashrc"
+    block: |
+      alias k='kubectl'
+      source <(kubectl completion bash)
+      complete -o default -F __start_kubectl k
+    marker: "# {mark} ANSIBLE MANAGED KUBECTL SETTINGS"
+  tags: ["kubernetes", "file"]
+
+- name: Load br_netfilter kernel module
+  community.general.modprobe:
+    name: "br_netfilter"
+    state: "present"
+  tags: ["kubernetes"]
+
+- name: Deploy Infrastructure Services
+  become: true
+  become_user: "{{ kubernetes_admin }}"
+  block:
+    - name: Apply Flannel (CNI)
+      kubernetes.core.k8s:
+        definition: "{{ lookup('ansible.builtin.url', 'https://github.com/flannel-io/flannel/releases/latest/download/kube-flannel.yml', split_lines=False) }}"
+        state: present
+    - name: Apply MetalLB (Load Balancer)
+      kubernetes.core.k8s:
+        definition: "{{ lookup('ansible.builtin.url', 'https://raw.githubusercontent.com/metallb/metallb/v0.15.2/config/manifests/metallb-native.yaml', split_lines=False) }}"
+        state: present
+    - name: Apply Nginx Ingress (Bare Metal version)
+      kubernetes.core.k8s:
+        definition: "{{ lookup('ansible.builtin.url', 'https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v1.13.2/deploy/static/provider/baremetal/deploy.yaml', split_lines=False) }}"
+        state: present
+    - name: Apply Longhorn (Storage)
+      kubernetes.core.k8s:
+        definition: "{{ lookup('ansible.builtin.url', 'https://raw.githubusercontent.com/longhorn/longhorn/v1.10.1/deploy/longhorn.yaml', split_lines=False) }}"
+        state: present
+  tags: ["kubernetes", "install", "once"]
+
+- name: Wait for Longhorn Manager to be ready
+  become: true
+  become_user: "{{ kubernetes_admin }}"
+  kubernetes.core.k8s_info:
+    kind: "DaemonSet"
+    name: "longhorn-manager"
+    namespace: "longhorn-system"
+  register: "longhorn_status"
+  until: 
+    - longhorn_status.resources | length > 0
+    - longhorn_status.resources[0].status.numberReady | default(0) == longhorn_status.resources[0].status.desiredNumberScheduled | default(1)
+  retries: 10
+  delay: 20
+  tags: ["kubernetes"]
+
+###### Environment section ######
+
+- name: Copy disk setup script for longhorn
+  ansible.builtin.template:
+    src: "disk_longhorn.sh.j2"
+    dest: "{{ kubernetes_stuff_path }}/disk_longhorn.sh"
+    owner: "{{ kubernetes_admin }}"
+    group: "{{ kubernetes_admin }}"
+    mode: "0700"
+  no_log: true
+  tags: ["kubernetes", "file"]
+
+- name: Create directory for docker images
+  ansible.builtin.file:
+    path: "{{ docker_images_dir }}"
+    state: "directory"
+    owner: "root"
+    group: "root"
+    mode: "0700"
+  tags: ["kubernetes", "file"]
+
+###### Download docker images section ######
+
+- name: Deploy Registry Cache as Static Pod
+  ansible.builtin.template:
+    src: "image_registry.yaml.j2"
+    dest: "/etc/kubernetes/manifests/image_registry.yaml"
+    owner: "root"
+    group: "root"
+    mode: "0700"
+  tags: ["kubernetes", "file"]
+
+- name: Wait for local registry to be ready
+  ansible.builtin.wait_for:
+    port: 5000
+    host: "localhost"
+    timeout: 30
+  tags: ["kubernetes"]
+
+- name: Sync images to local registry
+  ansible.builtin.command: >
+    skopeo copy 
+    --dest-tls-verify=false 
+    docker://{{ item.repo }}/{{ item.image }}
+    docker://localhost:5000/{{ item.image }}
+  loop:
+    - repo: "docker.io"
+      image: "wazuh/wazuh-agent:4.14.5"
+    - repo: "docker.io"
+      image: "grafana/alloy:v1.16.0"
+    - repo: "quay.io"
+      image: "prometheus-operator/prometheus-config-reloader:v0.89.0"
+  register: skopeo_copy_result
+  changed_when: "'Copying blob' in skopeo_copy_result.stdout"
+  tags: ["kubernetes"]
+
+- name: Verify images in local registry
+  ansible.builtin.uri:
+    url: "https://localhost:5000/v2/_catalog"
+    return_content: yes
+    validate_certs: false
+  register: registry_catalog
+  failed_when: registry_catalog.status != 200
+  tags: ["kubernetes"]
+
+###### Config for kubernetes section ######
+
+- name: Create Alloy and Wazuh namespace
+  become: true
+  become_user: "{{ kubernetes_admin }}"
+  kubernetes.core.k8s:
+    name: "{{ item }}"
+    api_version: "v1"
+    kind: "Namespace"
+    state: "present"
+  loop:
+    - "alloy-daemonset"
+    - "wazuh-daemonset"
+  tags: ["kubernetes"]
+
+- name: Create wazuh agent secret
+  become: true
+  become_user: "{{ kubernetes_admin }}"
+  kubernetes.core.k8s:
+    state: "present"
+    definition: 
+      apiVersion: "v1"
+      kind: "Secret"
+      type: "Opaque"             
+      metadata:
+        name: "wazuh-authd-pass"
+        namespace: "wazuh-daemonset"
+      stringData:
+        authd.pass: "{{ wazuh_join_password }}"
+  tags: ["kubernetes"]
+
+- name: Create TLS Secret
+  become: true
+  become_user: "{{ kubernetes_admin }}"
+  kubernetes.core.k8s:
+    state: "present"
+    definition:
+      apiVersion: "v1"
+      kind: "Secret"
+      type: "Opaque"
+      metadata:
+        name: "tls-certs"
+        namespace: "{{ item }}"
+      data:
+        # Use lookup to read local files and encode them
+        root-ca.pem: "{{ lookup('ansible.builtin.file', playbook_dir ~ '/client_certificates/root-ca.pem') | b64encode }}"
+        client-crt.pem: "{{ lookup('ansible.builtin.file', playbook_dir ~ '/client_certificates/' ~ servers.master.first ~ '/' ~ servers.master.first ~ '-crt.pem')  | b64encode }}"
+        client-key.pem: "{{ lookup('ansible.builtin.file', playbook_dir ~ '/client_certificates/' ~ servers.master.first ~ '/' ~ servers.master.first ~ '-key.pem') | b64encode }}"
+  loop:
+    - "alloy-daemonset"
+    - "wazuh-daemonset"
+  tags: ["kubernetes"]
+
+- name: Copy manifests and configs to master
+  ansible.builtin.template:
+    src: "{{ item }}.j2"
+    dest: "{{ kubernetes_manifests_path }}/{{ item }}"
+    owner: "{{ kubernetes_admin }}"
+    group: "{{ kubernetes_admin }}"
+    mode: "0700"
+  loop:
+    - "alloy_config.yaml"
+    - "wazuh_manifest.yaml"
+    # - "ingress_nginx_alloy.yaml"
+    # - "metallb.yaml"
+    # - "patch_ingress.yaml"
+  tags: ["kubernetes", "file"]
+
+###### Deploy pods section ######
+
+- name: Add Grafana Helm repo
+  kubernetes.core.helm_repository:
+    name: "grafana"
+    repo_url: "https://grafana.github.io/helm-charts"
+    kubeconfig: "/etc/kubernetes/admin.conf"
+  tags: ["kubernetes", "install"]
+
+- name: Update Helm repos
+  # become: true
+  # become_user: "{{ kubernetes_admin }}"
+  ansible.builtin.command: "helm repo update"
+  tags: ["kubernetes", "install"]
+
+- name: Deploy Alloy using Helm
+  # become: true
+  # become_user: "{{ kubernetes_admin }}"
+  kubernetes.core.helm:
+    name: "alloy"
+    chart_ref: "grafana/alloy"
+    release_namespace: "alloy-daemonset"
+    values_files:
+      - "{{ kubernetes_manifests_path }}/alloy_config.yaml"
+    state: present
+    update_repo_cache: true
+    kubeconfig: "/etc/kubernetes/admin.conf"
+  tags: ["kubernetes"]
+
+- name: Deploy wazuh agent
+  # become: true
+  # become_user: "{{ kubernetes_admin }}"
+  kubernetes.core.k8s:
+    state: "present"
+    src: "{{ kubernetes_manifests_path }}/{{ item }}"
+    kubeconfig: "/etc/kubernetes/admin.conf"
+  loop:
+    - "wazuh_manifest.yaml"
+  tags: ["kubernetes"]
+    
+###### Apt section ######
+
+- name: Uninstall ACL
+  ansible.builtin.apt:
+    name: "{{ acl }}"
+    state: "absent"
+  tags: ["kubernetes", "install"]
+
+- name: Remove Grafana Helm repo
+  kubernetes.core.helm_repository:
+    name: "grafana"
+    state: "absent"
+  tags: ["kubernetes", "install"]
+  
+- name: Remove Helm repository
+  ansible.builtin.apt_repository:
+    repo: "deb [signed-by=/etc/apt/keyrings/helm.gpg] https://packages.buildkite.com/helm-linux/helm-debian/any/ any main"
+    state: "absent"
+    filename: "helm"
+  when: "'helm' in ansible_facts.packages"
+  tags: ["kubernetes", "install"]

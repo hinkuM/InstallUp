@@ -1,0 +1,72 @@
+{% for item in cert_and_mail_data | unique %}
+server {
+    {% if ansible_distribution_major_version == '24' %}
+    listen 443 ssl http2;
+    listen [::]:443 ssl http2;
+
+
+    root /usr/share/roundcube;
+    {% endif %}
+    {% if ansible_distribution_major_version == '26' %}
+    listen 443 ssl;
+    listen [::]:443 ssl;
+    http2 on;
+
+
+    root /usr/share/roundcube/public_html;
+    {% endif %}
+
+
+    index index.php index.html static.php installer.php;
+
+    server_name {{ item.cert_domain }};
+
+    ssl_certificate     /etc/letsencrypt/live/{{ item.cert_domain }}/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/{{ item.cert_domain }}/privkey.pem;
+    
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_prefer_server_ciphers on;
+
+    charset utf-8;
+
+    location / {
+        try_files $uri $uri/ /index.php?$args;
+    }
+
+    location ~ ^/(README|INSTALL|LICENSE|CHANGELOG|UPGRADING)$ {
+        deny all;
+    }
+
+    location ~ ^/static\.php/(.*)$ {
+        root /usr/share/roundcube;
+        try_files /$1 =404;
+        expires max;
+        log_not_found off;
+    }
+
+    location ~ ^.+\.php($|/) {
+        include snippets/fastcgi-php.conf;
+
+        fastcgi_split_path_info ^(.+\.php)(/.+)$;
+        fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
+        fastcgi_param PATH_INFO $fastcgi_path_info;
+
+        fastcgi_pass unix:/run/php/{{ php_version }}-fpm.sock;
+    }
+
+    location ~* ^(?!.+\.php/).+\.(js|css|png|jpg|jpeg|gif|ico|svg)$ {
+        expires max;
+        log_not_found off;
+        try_files $uri =404;
+    }
+}
+
+server {
+    listen 80;
+    listen [::]:80;
+
+    server_name {{ item.cert_domain }};
+
+    return 301 https://$host$request_uri;
+}
+{% endfor %}

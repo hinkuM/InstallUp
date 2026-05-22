@@ -1,0 +1,191 @@
+###### Repository section ######
+
+- name: Check if wazuh is already installed
+  ansible.builtin.package_facts:
+    manager: "auto"
+  tags: ["wazuh_indexer", "install"]
+
+- name: Download Wazuh GPG key (Armored)
+  ansible.builtin.get_url:
+    url: "https://packages.wazuh.com/key/GPG-KEY-WAZUH"
+    dest: "/tmp/wazuh.asc"
+    mode: "0644"
+    force: false
+  when: 
+    - "'wazuh-indexer' not in ansible_facts.packages"
+    - "'wazuh-manager' not in ansible_facts.packages"
+    - "'wazuh-dashboard' not in ansible_facts.packages"
+  tags: ["wazuh_indexer", "install"]
+
+- name: De-armor Wazuh key to binary GPG
+  ansible.builtin.command: 
+    cmd: "gpg --dearmor -o /etc/apt/keyrings/wazuh.gpg /tmp/wazuh.asc"
+    creates: "/etc/apt/keyrings/wazuh.gpg"
+  when: 
+    - "'wazuh-indexer' not in ansible_facts.packages"
+    - "'wazuh-manager' not in ansible_facts.packages"
+    - "'wazuh-dashboard' not in ansible_facts.packages"
+  tags: ["wazuh_indexer", "install"]
+
+- name: Add Wazuh apt repository using the binary key
+  ansible.builtin.apt_repository:
+    repo: "deb [signed-by=/etc/apt/keyrings/wazuh.gpg] https://packages.wazuh.com/4.x/apt/ stable main"
+    state: "present"
+    filename: "wazuh.list"
+  when: 
+    - "'wazuh-indexer' not in ansible_facts.packages"
+    - "'wazuh-manager' not in ansible_facts.packages"
+    - "'wazuh-dashboard' not in ansible_facts.packages"
+  tags: ["wazuh_indexer", "install"]
+
+###### Apt section ######
+
+- name: Update apt cache
+  ansible.builtin.apt:
+    update_cache: true
+  tags: ["wazuh_indexer", "install"]
+
+- name: Install Wazuh Indexer with needed packages
+  ansible.builtin.apt:
+    name: 
+      - "{{ debconf }}"
+      - "{{ procps }}"
+      - "{{ adduser }}"
+      - "{{ wazuh_indexer }}"
+  tags: ["wazuh_indexer", "install"]
+
+###### Config section ######
+
+- name: Overwrite opensearch jvm, config, user, roles config
+  ansible.builtin.template:
+    src: "{{ item.source }}"
+    dest: "{{ item.destination }}"
+    owner: "wazuh-indexer"
+    group: "wazuh-indexer"
+    mode: "0644"
+  loop:
+    - source: "jvm.options.j2"
+      destination: "/etc/wazuh-indexer/jvm.options"
+    - source: "opensearch.yml.j2"
+      destination: "/etc/wazuh-indexer/opensearch.yml"
+    - source: "internal_users.yml.j2"
+      destination: "/etc/wazuh-indexer/opensearch-security/internal_users.yml"
+    - source: "roles_mapping.yml.j2"
+      destination: "/etc/wazuh-indexer/opensearch-security/roles_mapping.yml"
+  no_log: true
+  tags: ["wazuh_indexer", "file"]
+
+###### Certificate section ######
+
+- name: Create directories for wazuh-indexer certs
+  ansible.builtin.file:
+    path: "/etc/wazuh-indexer/certs"
+    owner: "wazuh-indexer"
+    group: "wazuh-indexer"
+    state: "directory"
+    mode: "0750"
+  tags: ["wazuh_indexer", "file"]
+
+- name: Recursively copy certs from selfcerts to wazuh-indexer
+  ansible.builtin.copy:
+    src: "{{ self_certs }}/{{ item.origin }}"
+    dest: "/etc/wazuh-indexer/certs/{{ item.dest }}"
+    remote_src: true
+    owner: "wazuh-indexer"
+    group: "wazuh-indexer"
+    mode: "0400"
+  loop:
+    - origin: "wazuh-indexer/server-crt.pem"
+      dest: "server-crt.pem"
+    - origin: "wazuh-indexer/server-key.pem"
+      dest: "server-key.pem"
+    - origin: "root-ca.pem"
+      dest: "root-ca.pem"
+  no_log: true
+  tags: ["wazuh_indexer", "file"]
+
+- name: Set ownership for wazuh-indexer certs
+  ansible.builtin.file:
+    path: "{{ wazuh_indexer_cert_dir }}"
+    owner: "root"
+    group: "wazuh-indexer"
+    recurse: true
+  no_log: true
+  tags: ["wazuh_indexer", "file"]
+
+###### Environment section ######
+
+- name: Set memlock limits for wazuh-indexer
+  community.general.pam_limits:
+    domain: "wazuh-indexer"
+    limit_type: "{{ item }}"
+    limit_item: "memlock"
+    value: "unlimited"
+  loop:
+    - "soft"
+    - "hard"
+  tags: ["wazuh_indexer"]
+
+- name: Create systemd override directory
+  ansible.builtin.file:
+    path: "/etc/systemd/system/wazuh-indexer.service.d"
+    state: "directory"
+    mode: "0755"
+  tags: ["wazuh_indexer", "file"]
+
+- name: Set LimitMEMLOCK in systemd override
+  ansible.builtin.copy:
+    dest: "/etc/systemd/system/wazuh-indexer.service.d/override.conf"
+    content: |
+      [Service]
+      LimitMEMLOCK=infinity
+    mode: "0644"
+  tags: ["wazuh_indexer"]
+
+###### Handler & Security config section ######
+
+- name: Restart Wazuh Indexer
+  ansible.builtin.service:
+    name: "wazuh-indexer"
+    state: "restarted"
+  tags: ["wazuh_indexer", "handler"]
+
+- name: Initialize Wazuh Security
+  ansible.builtin.command:
+    cmd: >
+      /usr/share/wazuh-indexer/plugins/opensearch-security/tools/securityadmin.sh
+      -cd /etc/wazuh-indexer/opensearch-security 
+      -cacert /etc/wazuh-indexer/certs/root-ca.pem
+      -cert /etc/wazuh-indexer/certs/server-crt.pem
+      -key /etc/wazuh-indexer/certs/server-key.pem
+      -h 127.0.0.1 
+      -p 9200 
+      -icl -nhnv
+    creates: /etc/wazuh-indexer/security_initialized.marker 
+  environment:
+    JAVA_HOME: "/usr/share/wazuh-indexer/jdk/"
+  tags: ["wazuh_indexer", "once"]
+  register: security_init_result
+  
+- name: Create marker file after successful initialization
+  ansible.builtin.file:
+    path: /etc/wazuh-indexer/security_initialized.marker
+    state: touch
+    owner: wazuh-indexer
+    group: wazuh-indexer
+    mode: '0644'
+  when: security_init_result.changed
+  tags: ["wazuh_indexer", "once"]
+
+- name: Restart wazuh-indexer
+  ansible.builtin.service:
+    name: "wazuh-indexer"
+    state: "restarted"
+  tags: ["wazuh_indexer", "handler"]
+
+- name: Enable wazuh-indexer
+  ansible.builtin.service:
+    name: "wazuh-indexer"
+    enabled: true
+  tags: ["wazuh_indexer", "handler"]
+

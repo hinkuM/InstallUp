@@ -1,0 +1,36 @@
+###### Apt section ######
+
+- name: Install Redis Server
+  ansible.builtin.apt:
+    name: "{{ redis_server }}"
+    state: "present"
+  tags: ["redis", "install"]
+
+###### Config section ######
+
+- name: Create config files for redis
+  ansible.builtin.copy:
+    src: "{{ item }}"
+    dest: "/etc/redis/{{ item }}"
+    owner: "redis"
+    group: "redis"
+    mode: "0640"
+  loop:
+    - "redis.conf"
+    - "redis.conf.bck"
+  no_log: true
+  tags: ["redis", "file"]
+
+###### Handler section ######
+
+- name: Restart Redis Server
+  ansible.builtin.service:
+    name: redis-server
+    state: restarted
+  tags: ["redis", "handler"]
+
+- name: Enable Redis Server
+  ansible.builtin.service:
+    name: redis-server
+    enabled: true
+  tags: ["redis", "handler"]

@@ -1,0 +1,5 @@
+user = {{ db_username }}
+password = {{ db_password }}
+hosts = 127.0.0.1
+dbname = {{ db_name }}
+query = SELECT domain FROM {{ db_table_domains }} WHERE domain='%s'

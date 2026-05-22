@@ -1,0 +1,28 @@
+#################################
+#                               #
+#        # Comment              #
+#        variable: "value"      #
+#                               #
+#################################
+
+
+####### Credentials #######
+# Password to be set as new root password
+vault_root_password: "plain_text_password"
+# Password for sudo user created at system installation process
+vault_new_admin_password: "plain_text_password"
+# Password for grafana admin
+vault_grafana_admin_password: "plain_text_password"
+# IMPORTANT: Set this to a unique, random string in production.
+# Used for signing. If you change it later you may need to re-encode secrets.
+# Example: openssl rand -hex 32
+# Grafana secret key for encrypting secrets
+vault_grafana_secret_key: "grafana_key"
+# Password for Wazuh dashboard admin
+vault_wazuh_admin_password: "plain_text_password"
+# Password for filebeat user
+vault_wazuh_writer_password: "plain_text_password"
+# Password for Wazuh dashboard read only user
+vault_wazuh_read_only_password: "plain_text_password"
+# Password for Wazuh dashboard background server user
+vault_wazuh_kibanaserver_password: "plain_text_password"

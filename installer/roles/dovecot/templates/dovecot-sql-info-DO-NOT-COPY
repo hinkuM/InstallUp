@@ -1,0 +1,66 @@
+# Database driver: mysql, pgsql, sqlite
+driver = mysql
+
+# Examples:
+#   connect = host=192.168.1.1 dbname=users
+#   connect = host=sql.example.com dbname=virtual user=virtual password=blarg
+#   connect = /etc/dovecot/authdb.sqlite
+#
+connect = host=127.0.0.1 dbname={{ db_name }} user={{ db_username }} password={{ db_password }}
+
+default_pass_scheme = SHA512-CRYPT
+
+
+# Commonly used available substitutions (see http://wiki2.dovecot.org/Variables
+# for full list):
+#   %u = entire user@domain
+#   %n = user part of user@domain
+#   %d = domain part of user@domain
+#
+# Example:
+#   password_query = SELECT userid AS user, pw AS password \
+#     FROM users WHERE userid = '%u' AND active = 'Y'
+#
+#password_query = \
+#  SELECT username, domain, password \
+#  FROM users WHERE username = '%n' AND domain = '%d'
+
+password_query = SELECT username, {{ db_table_domains }}.domain, password FROM {{ db_table_users }} INNER JOIN {{ db_table_domains }} ON {{ db_table_domains }}.id_domain = {{ db_table_users }}.domain WHERE (CONCAT(username, '@', domains.domain) = '%u') AND active = 'Y';
+
+
+# userdb query to retrieve the user information. It can return fields:
+#   uid - System UID (overrides mail_uid setting)
+#   gid - System GID (overrides mail_gid setting)
+#   home - Home directory
+#   mail - Mail location (overrides mail_location setting)
+#
+# None of these are strictly required. If you use a single UID and GID, and
+# home or mail directory fits to a template string, you could use userdb static
+# instead. For a list of all fields that can be returned, see
+# http://wiki2.dovecot.org/UserDatabase/ExtraFields
+#
+# Examples:
+#   user_query = SELECT home, uid, gid FROM users WHERE userid = '%u'
+#   user_query = SELECT dir AS home, user AS uid, group AS gid FROM users where userid = '%u'
+#   user_query = SELECT home, 501 AS uid, 501 AS gid FROM users WHERE userid = '%u'
+#
+#user_query = \
+#  SELECT home, uid, gid \
+#  FROM users WHERE username = '%n' AND domain = '%d'
+
+user_query = SELECT CONCAT('maildir:{{ mail_path }}', domains.domain, '/', users.username) as mail, 5000 as uid, 5000 as gid FROM {{ db_table_users }} INNER JOIN {{ db_table_domains }} ON {{ db_table_domains }}.id_domain = {{ db_table_users }}.domain WHERE (CONCAT(username, '@', domains.domain) = '%u') AND active = 'Y';
+
+
+# If you wish to avoid two SQL lookups (passdb + userdb), you can use
+# userdb prefetch instead of userdb sql in dovecot.conf. In that case you'll
+# also have to return userdb fields in password_query prefixed with "userdb_"
+# string. For example:
+#password_query = \
+#  SELECT userid AS user, password, \
+#    home AS userdb_home, uid AS userdb_uid, gid AS userdb_gid \
+#  FROM users WHERE userid = '%u'
+
+# Query to get a list of all usernames.
+iterate_query = SELECT CONCAT(users.username, '@', domains.domain) as user FROM {{ db_table_users }} INNER JOIN {{ db_table_domains }} ON {{ db_table_domains }}.id_domain = {{ db_table_users }}.domain WHERE active = 'Y';
+
+#iterate_query = SELECT username AS user FROM users

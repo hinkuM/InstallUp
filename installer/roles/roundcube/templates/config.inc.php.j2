@@ -1,0 +1,114 @@
+<?php
+
+/*
+ +-----------------------------------------------------------------------+
+ | Local configuration for the Roundcube Webmail installation.           |
+ |                                                                       |
+ | This is a sample configuration file only containing the minimum       |
+ | setup required for a functional installation. Copy more options       |
+ | from defaults.inc.php to this file to override the defaults.          |
+ |                                                                       |
+ | This file is part of the Roundcube Webmail client                     |
+ | Copyright (C) The Roundcube Dev Team                                  |
+ |                                                                       |
+ | Licensed under the GNU General Public License version 3 or            |
+ | any later version with exceptions for skins & plugins.                |
+ | See the README file for a full license statement.                     |
+ +-----------------------------------------------------------------------+
+*/
+
+$config = [];
+
+include("/etc/roundcube/debian-db-roundcube.php");
+
+{% if ansible_distribution_major_version == '26' %}
+$config['db_dsnw'] = 'mysql://{{ roundcube_db_username }}:{{ roundcube_db_password }}@localhost/{{ roundcube_db_name }}';
+$config['assets_path'] = '';
+{% endif %}
+
+
+// Automatically create default IMAP folders on first login
+$config['create_default_folders'] = true;
+
+$config['force_https'] = true;
+$config['session_cookie_secure'] = true;
+
+// Define which folders are "Special"
+$config['junk_mbox'] = 'Junk';
+$config['archive_mbox'] = 'Archive';
+$config['sent_mbox'] = 'Sent';
+$config['drafts_mbox'] = 'Drafts';
+$config['trash_mbox'] = 'Trash';
+
+$config['imap_host'] = 'ssl://%n';
+$config['default_port'] = 993;
+
+{% for item in cert_and_mail_data | default([]) %}
+if (
+    isset($_SERVER['HTTP_HOST']) &&
+    (
+        $_SERVER['HTTP_HOST'] === 'poczta.{{ item.domain }}' ||
+        $_SERVER['HTTP_HOST'] === 'mail.{{ item.domain }}'
+    )
+) {
+    $config['username_domain'] = '{{ item.domain }}';
+    $config['login_username_filter'] = '/^[^@]+(@{{ item.filter }})?$/i';
+}
+{% endfor %}
+
+$config['username_domain_forced'] = true;
+
+$config['smtp_host'] = 'ssl://%n';
+$config['smtp_port'] = 587;
+$config['smtp_user'] = '%u';         // or %n if SASL uses local part only
+$config['smtp_pass'] = '%p';
+$config['smtp_use_tls'] = false;      // enable STARTTLS
+$config['smtp_auth_type'] = 'LOGIN';
+
+// provide an URL where a user can get support for this Roundcube installation
+// PLEASE DO NOT LINK TO THE ROUNDCUBE.NET WEBSITE HERE!
+$config['support_url'] = '';
+
+// Name your service. This is displayed on the login screen and in the window title
+$config['product_name'] = '{{ mail_home_title }}';
+
+// This key is used to encrypt the users imap password which is stored
+// in the session record. For the default cipher method it must be
+// exactly 24 characters long.
+// YOUR KEY MUST BE DIFFERENT THAN THE SAMPLE VALUE FOR SECURITY REASONS
+$config['des_key'] = '{{ password_encryption_key }}';
+
+// List of active plugins (in plugins/ directory)
+// Debian: install roundcube-plugins first to have any
+$config['plugins'] = [
+  'archive',
+  'zipdownload',
+  'password',
+  'managesieve',
+  'markasjunk',
+  {% if ansible_distribution_major_version == '24' %}
+  'twofactor_gauthenticator',
+  {% endif %}
+];
+
+$config['session_lifetime'] = 15;
+
+// skin name: folder from skins/
+$config['skin'] = 'elastic';
+$config['skins_allowed'] = ['elastic', 'larry', 'classic'];
+
+$config['language'] = 'pl_PL';
+$config['date_format'] = 'd.m.Y';
+$config['time_format'] = 'H:i';
+$config['mail_pagesize'] = 100;
+$config['default_charset'] = 'UTF-8';
+$config['mime_param_folding'] = 1;
+
+// Disable spellchecking
+// Debian: spellchecking needs additional packages to be installed, or calling external APIs
+//         see defaults.inc.php for additional informations
+$config['enable_spellcheck'] = true;
+$config['spellcheck_engine'] = 'pspell'; // albo 'enchant';
+$config['spellcheck_languages'] = ['en' => 'English', 'pl' => 'Polski'];
+
+$config['log_dir'] = '/var/log/roundcube/'; 
