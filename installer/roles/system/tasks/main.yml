@@ -141,6 +141,19 @@
 #   no_log: true
 #   tags: ["system"]
 
+###### Network section (Only mail group) ######
+
+- name: Ensure all domains are present in /etc/hosts
+  ansible.builtin.lineinfile:
+    path: /etc/hosts
+    regexp: '^127\.0\.0\.1[ \t]+'
+    line: "127.0.0.1 localhost {{ cert_and_mail_data | map(attribute='cert_domain') | join(' ') }}"
+    state: present
+    backup: yes
+  when: "'mail' in group_names"
+  no_log: true
+  tags: ["system"]
+
 ###### Backup section (only logs group) ######
 
 - name: Install nfs for kubernetes users' files backup

@@ -46,7 +46,7 @@ submissions     inet  n       -       y       -       -       smtpd
 {{ item.postfix_name }}   unix  -       -       n       -       -       smtp
     -o myhostname={{ item.cert_domain }}
     -o smtp_helo_name={{ item.cert_domain }}
-    -o smtp_bind_address={{ item.public_ip }}
+#    -o smtp_bind_address={{ item.public_ip }}
 {% endfor %}
 
 #  -o smtpd_tls_auth_only=yes

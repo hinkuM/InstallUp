@@ -69,7 +69,12 @@ ansible_port: "{{ ssh_port }}"
 # token         - this configuration uses cloudflare tokens (permissions needed:	Zone.Zone, Zone.DNS) to auto renew certificates
 # filename      - name of file where cloudflare token is stored (NOT PATH)
 # filter        - domain but with little changes, for regex to see "." as "." not wildcard 
+
+# CURRENTLY NOT OPERATIONAL - becasue of my little mistake i need to make hotfix here and note
+# for it to work it needs two seperate networks, that can be done by adding new ethernet card or creating virtual one, for now it will be working only for one public ip (one that is currently used by network)
+# i'm planning to change that so that having two or more public IPs will work with rDNS for each domain
 # public_ip     - binds this address to specific domain in mail server (for rDNS to work)
+
 # postfix_name  - random name so mail server's scripts can refer to entries in master.cf, unique for each domain
 # dkim_selector - DKIM name which was used in cert_domain, later used to create DNS entries on domain provider website and verify your ownership of domain
 cert_and_mail_data:
