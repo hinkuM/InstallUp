@@ -1,5 +1,7 @@
 mkdir -p /var/ossec/etc/certs
 
+# create this certificates using cat <<EOF > ....
+
 chown -R root:wazuh /var/ossec/etc/certs
 chmod 750 /var/ossec/etc/certs
 chmod 640 /var/ossec/etc/certs/*

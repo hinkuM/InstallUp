@@ -12,7 +12,8 @@ printf "Create/delete existing ssh keys: 1\n"
 printf "Installation of mail server: 2\n"
 printf "Installation of kubernetes cluster: 3\n"
 printf "Encrypt or decrypt ansible vault files: 4\n"
-printf "Exit: 5\n\n"
+printf "Recreate certificates for all machines: 5\n"
+printf "Exit: 9\n\n"
 
 printf "/\\/\\/\\/\\/\\/\\/\\/\\/\\/\\/\\/\\/\\/\\/\\/\\/\\/\\/\\/\\/\\/\\/\\/\\ \n\n"
 
@@ -124,11 +125,28 @@ ansible_vault() {
     return 0
 }
 
+certificates() {
+    TAGS=""
+    printf "(WARNING: 'server' or 'clients' alone assumes Root CA already exists)\n"
+    printf "(leave empty or enter them like this: tag1,tag2,tag3)\n"
+    printf "(you can choose to recreate certificates: ca (all), server (server only), clients (client only))\n"
+    printf "(by default - ca - is selected)\n\n"
+    read -p "Select ca, server or clients: " TAGS
+    if [[ -n "$TAGS" ]]; then
+        ansible-playbook -i "${CURRENT_DIR}/installer/inventory.yaml" "${CURRENT_DIR}/installer/playbook_renew_certs.yaml" -e 'ansible_python_interpreter=/usr/bin/python3' --tags "${TAGS}" --vault-password-file "${CURRENT_DIR}/.vault_pass"
+    else
+        ansible-playbook -i "${CURRENT_DIR}/installer/inventory.yaml" "${CURRENT_DIR}/installer/playbook_renew_certs.yaml" -e 'ansible_python_interpreter=/usr/bin/python3' --tags "ca" --vault-password-file "${CURRENT_DIR}/.vault_pass"
+    fi
+    ansible-playbook -i "${CURRENT_DIR}/installer/inventory.yaml" "${CURRENT_DIR}/installer/playbook_deploy_certs.yaml" -e 'ansible_python_interpreter=/usr/bin/python3' --tags "certificates,file,once,handler,pod" --vault-password-file "${CURRENT_DIR}/.vault_pass"  -e "force_wazuh_security_init=true"
+    return 0
+}
+
 case $ACTION in
   "1") ssh_keys ;;
   "2") installation ;;
   "3") installation ;;
   "4") ansible_vault ;;
-  "5") exit ;;
+  "5") certificates ;;
+  "9") exit ;;
   *) exit ;;
 esac
