@@ -11,6 +11,19 @@
       - "{{ libclamunrar }}"
   tags: ["clamav", "install"]
 
+- name: Prevent specific packages from being updated (Hold)
+  ansible.builtin.dpkg_selections:
+    name: "{{ item }}"
+    selection: hold
+  loop:
+    - "{{ clamav }}"
+    - "{{ clamav_daemon }}"
+    - "{{ clamav_freshclam }}"
+    - "{{ clamav_milter }}"
+    - "{{ clamdscan }}"
+    - "{{ libclamunrar }}"
+  tags: ["clamav", "install"]
+
 ###### Environment section ######
 
 - name: Create directory for clamav

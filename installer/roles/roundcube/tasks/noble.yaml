@@ -8,6 +8,15 @@
     state: "present"
   tags: ["roundcube", "install"]
 
+- name: Prevent specific packages from being updated (Hold)
+  ansible.builtin.dpkg_selections:
+    name: "{{ item }}"
+    selection: hold
+  loop:
+    - "{{ roundcube }}"
+    - "{{ roundcube_plugins }}"
+  tags: ["roundcube", "install"]
+
 ###### Config section ######
 
 - name: Overwrite config files (templates)
@@ -91,29 +100,6 @@
     force: true
   tags: ["roundcube", "install"]
 
-# - name: Install ACL so ansible can install composer components
-#   ansible.builtin.apt:
-#     name: "{{ acl }}"
-#     state: "present"
-#   tags: ["roundcube", "install"]
-
-# - name: Install composer dependencies
-#   community.general.composer:
-#     command: "update" # 'update' in case of error or something else happening
-#     working_dir: "/usr/share/roundcube"
-#     no_dev: yes
-#   become: true
-#   become_user: "www-data"
-#   vars:
-#     ansible_remote_tmp: /tmp/.ansible-www-data
-#   tags: ["roundcube", "install"]
-
-# - name: Uninstall ACL
-#   ansible.builtin.apt:
-#     name: "{{ acl }}"
-#     state: "absent"
-#   tags: ["roundcube", "install"]
-
 - name: Symlink roundcube plugin from usr to var
   ansible.builtin.file:
     src: "/usr/share/roundcube/plugins/twofactor_gauthenticator"
@@ -137,7 +123,7 @@
       destination: "/etc/roundcube/plugins/managesieve/config.inc.php"
     - source: "password.j2"
       destination: "/etc/roundcube/plugins/password/config.inc.php"
-  # no_log: true
+  no_log: true
   tags: ["roundcube", "file"]
 
 - name: Apply debconf changes

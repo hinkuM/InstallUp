@@ -14,6 +14,17 @@
       - "{{ wazuh_dashboard }}"
   tags: ["wazuh_dashboard", "install"]
 
+- name: Prevent specific packages from being updated (Hold)
+  ansible.builtin.dpkg_selections:
+    name: "{{ item }}"
+    selection: hold
+  loop:
+    - "{{ debhelper }}"
+    - "{{ libcap2_bin }}"
+    - "{{ tar }}"
+    - "{{ wazuh_dashboard }}"
+  tags: ["wazuh_dashboard", "install"]
+
 - name: Remove Wazuh repository
   ansible.builtin.apt_repository:
     repo: "deb [signed-by=/etc/apt/keyrings/wazuh.gpg] https://packages.wazuh.com/4.x/apt/ stable main"

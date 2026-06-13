@@ -22,6 +22,24 @@
     state: "present"
   tags: ["system", "install"]
 
+- name: Prevent specific packages from being updated (Hold)
+  ansible.builtin.dpkg_selections:
+    name: "{{ item }}"
+    selection: hold
+  loop:
+    - "{{ gnupg }}"
+    - "{{ curl }}"
+    - "{{ wget }}"
+    - "{{ openssh_server }}"
+    - "{{ iptables }}"
+    - "{{ iptables_persistent }}"
+    - "{{ cron }}"
+    - "{{ lsb_release }}"
+    - "{{ ca_certificates }}"
+    - "{{ apt_transport_https }}"
+    - "{{ systemd_timesyncd }}"
+  tags: ["system", "install"]
+
 ###### System section ######
 
 - name: Disable swap
@@ -77,6 +95,14 @@
     mode: "0755"
   tags: ["system"]
 
+###### Certificates section ######
+
+- name: Ensure group "client_certs" exists
+  ansible.builtin.group:
+    name: "client_certs"
+    state: "present"
+  tags: ["system", "certificates"]
+
 - name: Create directories for certificates
   ansible.builtin.file:
     path: "{{ item }}"
@@ -87,15 +113,7 @@
   loop:
     - "{{ self_certs }}"
     - "{{ clients_cert_dir }}"
-  tags: ["system"]
-
-###### Users section ######
-
-- name: Ensure group "client_certs" exists
-  ansible.builtin.group:
-    name: "client_certs"
-    state: "present"
-  tags: ["system"]
+  tags: ["system", "certificates"]
 
 - name: Copy certificates to this pc
   ansible.builtin.copy:
@@ -109,7 +127,7 @@
     - "crt.pem"
   no_log: true
   when: "'logs' not in group_names"
-  tags: ["system", "file"]
+  tags: ["system", "file", "certificates"]
 
 - name: Copy root CA certificate to this pc
   ansible.builtin.copy:
@@ -120,7 +138,7 @@
     group: "client_certs"
   no_log: true
   when: "'logs' not in group_names"
-  tags: ["system", "file"]
+  tags: ["system", "file", "certificates"]
 
 ###### Users section ######
 
@@ -162,6 +180,14 @@
     state: "present"
   when: "'logs' in group_names"
   tags: ["system"]
+
+
+- name: Prevent specific packages from being updated (Hold)
+  ansible.builtin.dpkg_selections:
+    name: "{{ nfs_common }}"
+    selection: hold
+  when: "'logs' in group_names"
+  tags: ["system", "install"]
 
 - name: Create the backup user
   ansible.builtin.user:

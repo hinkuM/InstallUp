@@ -11,6 +11,19 @@
       - "{{ dmsetup }}"
   tags: ["longhorn", "install"]
 
+- name: Prevent specific packages from being updated (Hold)
+  ansible.builtin.dpkg_selections:
+    name: "{{ item }}"
+    selection: hold
+  loop:
+    - "{{ open_iscsi }}"
+    - "{{ nfs_common }}"
+    - "{{ gawk }}"
+    - "{{ util_linux }}"
+    - "{{ cryptsetup }}"
+    - "{{ dmsetup }}"
+  tags: ["longhorn", "install"]
+
 ###### Handler section ######
 
 - name: Restart iscsid

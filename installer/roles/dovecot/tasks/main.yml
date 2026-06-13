@@ -12,6 +12,19 @@
     state: "present"
   tags: ["dovecot", "install"]
 
+- name: Prevent specific packages from being updated (Hold)
+  ansible.builtin.dpkg_selections:
+    name: "{{ item }}"
+    selection: hold
+  loop:
+    - "{{ dovecot_core }}"
+    - "{{ dovecot_mysql }}"
+    - "{{ dovecot_imapd }}"
+    - "{{ dovecot_lmtpd }}"
+    - "{{ dovecot_sieve }}"
+    - "{{ dovecot_managesieved }}"
+  tags: ["dovecot", "install"]
+
 ###### Environment section ######
 
 - name: Ensure group "dovecot_mail_user" exists

@@ -85,6 +85,15 @@
     state: "present"
   tags: ["roundcube", "install"]
 
+- name: Prevent specific packages from being updated (Hold)
+  ansible.builtin.dpkg_selections:
+    name: "{{ item }}"
+    selection: hold
+  loop:
+      - "node-less"
+      - "node-clean-css"
+  tags: ["roundcube", "install"]
+
 ###### Frontend section ######
 
 - name: Compile Roundcube Elastic skin LESS files to minified CSS

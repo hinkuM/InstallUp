@@ -36,6 +36,15 @@
       - "{{ bash_completion }}"
   tags: ["docker", "install"]
 
+- name: Prevent specific packages from being updated (Hold)
+  ansible.builtin.dpkg_selections:
+    name: "{{ item }}"
+    selection: hold
+  loop:
+    - "{{ containerd }}"
+    - "{{ bash_completion }}"
+  tags: ["docker", "install"]
+
 - name: Remove docker repository
   ansible.builtin.apt_repository:
     repo: "deb [signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu {{ ansible_distribution_release }} stable"

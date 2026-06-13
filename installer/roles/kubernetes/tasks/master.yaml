@@ -37,6 +37,19 @@
       - "{{ python_yaml }}"
       - "{{ skopeo }}"
       - "{{ acl }}"
+  tags: ["kubernetes", "install", "pod"]
+
+- name: Prevent specific packages from being updated (Hold)
+  ansible.builtin.dpkg_selections:
+    name: "{{ item }}"
+    selection: hold
+  loop:
+    - "{{ helm }}"
+    - "{{ python_kubernetes }}"
+    - "{{ python_openshift }}"
+    - "{{ python_yaml }}"
+    - "{{ skopeo }}"
+    - "{{ acl }}"
   tags: ["kubernetes", "install"]
 
 ###### Environment section ######
@@ -178,7 +191,7 @@
       kubernetes.core.k8s:
         definition: "{{ lookup('ansible.builtin.url', 'https://raw.githubusercontent.com/longhorn/longhorn/v1.10.1/deploy/longhorn.yaml', split_lines=False) }}"
         state: present
-  tags: ["kubernetes", "install", "once"]
+  tags: ["kubernetes", "install"]
 
 - name: Wait for Longhorn Manager to be ready
   become: true
@@ -273,7 +286,7 @@
   loop:
     - "alloy-daemonset"
     - "wazuh-daemonset"
-  tags: ["kubernetes"]
+  tags: ["kubernetes", "pod"]
 
 - name: Create wazuh agent secret
   become: true
@@ -289,7 +302,7 @@
         namespace: "wazuh-daemonset"
       stringData:
         authd.pass: "{{ wazuh_join_password }}"
-  tags: ["kubernetes"]
+  tags: ["kubernetes", "pod"]
 
 - name: Create TLS Secret
   become: true
@@ -304,14 +317,13 @@
         name: "tls-certs"
         namespace: "{{ item }}"
       data:
-        # Use lookup to read local files and encode them
         root-ca.pem: "{{ lookup('ansible.builtin.file', playbook_dir ~ '/client_certificates/root-ca.pem') | b64encode }}"
         client-crt.pem: "{{ lookup('ansible.builtin.file', playbook_dir ~ '/client_certificates/' ~ servers.master.first ~ '/' ~ servers.master.first ~ '-crt.pem')  | b64encode }}"
         client-key.pem: "{{ lookup('ansible.builtin.file', playbook_dir ~ '/client_certificates/' ~ servers.master.first ~ '/' ~ servers.master.first ~ '-key.pem') | b64encode }}"
   loop:
     - "alloy-daemonset"
     - "wazuh-daemonset"
-  tags: ["kubernetes"]
+  tags: ["kubernetes", "pod"]
 
 - name: Copy manifests and configs to master
   ansible.builtin.template:
@@ -326,7 +338,7 @@
     # - "ingress_nginx_alloy.yaml"
     # - "metallb.yaml"
     # - "patch_ingress.yaml"
-  tags: ["kubernetes", "file"]
+  tags: ["kubernetes", "file", "pod"]
 
 ###### Deploy pods section ######
 
@@ -335,13 +347,13 @@
     name: "grafana"
     repo_url: "https://grafana.github.io/helm-charts"
     kubeconfig: "/etc/kubernetes/admin.conf"
-  tags: ["kubernetes", "install"]
+  tags: ["kubernetes", "install", "pod"]
 
 - name: Update Helm repos
   # become: true
   # become_user: "{{ kubernetes_admin }}"
   ansible.builtin.command: "helm repo update"
-  tags: ["kubernetes", "install"]
+  tags: ["kubernetes", "install", "pod"]
 
 - name: Deploy Alloy using Helm
   # become: true
@@ -355,7 +367,7 @@
     state: present
     update_repo_cache: true
     kubeconfig: "/etc/kubernetes/admin.conf"
-  tags: ["kubernetes"]
+  tags: ["kubernetes", "pod"]
 
 - name: Deploy wazuh agent
   # become: true
@@ -366,7 +378,7 @@
     kubeconfig: "/etc/kubernetes/admin.conf"
   loop:
     - "wazuh_manifest.yaml"
-  tags: ["kubernetes"]
+  tags: ["kubernetes", "pod"]
     
 ###### Apt section ######
 
@@ -374,18 +386,10 @@
   ansible.builtin.apt:
     name: "{{ acl }}"
     state: "absent"
-  tags: ["kubernetes", "install"]
+  tags: ["kubernetes", "install", "pod"]
 
 - name: Remove Grafana Helm repo
   kubernetes.core.helm_repository:
     name: "grafana"
     state: "absent"
-  tags: ["kubernetes", "install"]
-  
-- name: Remove Helm repository
-  ansible.builtin.apt_repository:
-    repo: "deb [signed-by=/etc/apt/keyrings/helm.gpg] https://packages.buildkite.com/helm-linux/helm-debian/any/ any main"
-    state: "absent"
-    filename: "helm"
-  when: "'helm' in ansible_facts.packages"
-  tags: ["kubernetes", "install"]
+  tags: ["kubernetes", "install", "pod"]

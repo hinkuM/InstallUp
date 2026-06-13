@@ -6,6 +6,12 @@
     state: "present"
   tags: ["redis", "install"]
 
+- name: Prevent specific packages from being updated (Hold)
+  ansible.builtin.dpkg_selections:
+    name: "{{ redis_server }}"
+    selection: hold
+  tags: ["redis", "install"]
+
 ###### Config section ######
 
 - name: Create config files for redis

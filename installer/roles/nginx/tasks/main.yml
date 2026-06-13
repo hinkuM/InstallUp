@@ -5,6 +5,12 @@
     name: "{{ nginx }}"
   tags: ["nginx", "install"]
 
+- name: Prevent specific packages from being updated (Hold)
+  ansible.builtin.dpkg_selections:
+    name: "{{ nginx }}"
+    selection: hold
+  tags: ["nginx", "install"]
+
 ###### Environment section ######
 
 - name: Ensure nginx directiories exists

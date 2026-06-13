@@ -6,6 +6,12 @@
     state: "present"
   tags: ["logrotate", "install"]
 
+- name: Prevent specific packages from being updated (Hold)
+  ansible.builtin.dpkg_selections:
+    name: "{{ logrotate }}"
+    selection: hold
+  tags: ["logrotate", "install"]
+
 ###### Config section ######
 
 - name: Clean old logrotate files

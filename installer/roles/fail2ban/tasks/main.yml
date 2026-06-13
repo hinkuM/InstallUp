@@ -5,6 +5,12 @@
     name: "{{ fail2ban }}"
   tags: ["fail2ban", "install"]
 
+- name: Prevent specific packages from being updated (Hold)
+  ansible.builtin.dpkg_selections:
+    name: "{{ fail2ban }}"
+    selection: hold
+  tags: ["fail2ban", "install"]
+
 ###### Config section ######
 
 - name: Overwrite the main.cf

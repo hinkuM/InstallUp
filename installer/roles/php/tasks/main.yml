@@ -24,6 +24,24 @@
     - "{{ pexpect }}"
   tags: ["php", "install"]
 
+- name: Prevent specific packages from being updated (Hold)
+  ansible.builtin.dpkg_selections:
+    name: "{{ item }}"
+    selection: hold
+  loop:
+    - "{{ php_fpm }}"
+    - "{{ php_cli }}"
+    - "{{ php_mysql }}"
+    - "php-pear"
+    - "{{ php_mbstring }}"
+    - "{{ php_intl }}"
+    - "{{ php_xml }}"
+    - "{{ php_curl }}"
+    - "{{ php_zip }}"
+    - "{{ php_gd }}"
+    - "{{ pexpect }}"
+  tags: ["php", "install"]
+
 ###### Handler section ######
 
 - name: Restart php-fpm

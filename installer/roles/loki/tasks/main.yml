@@ -5,6 +5,12 @@
     name: "{{ loki }}"
   tags: ["loki", "install"]
 
+- name: Prevent specific packages from being updated (Hold)
+  ansible.builtin.dpkg_selections:
+    name: "{{ loki }}"
+    selection: hold
+  tags: ["loki", "install"]
+
 ###### Config section ######
 
 - name: Overwrite loki config

@@ -5,6 +5,12 @@
     name: "{{ openssh_server }}"
   tags: ["ssh", "install"]
 
+- name: Prevent specific packages from being updated (Hold)
+  ansible.builtin.dpkg_selections:
+    name: "{{ openssh_server }}"
+    selection: hold
+  tags: ["ssh", "install"]
+
 ###### Key section ######
 
 - name: Set authorized key taken from file

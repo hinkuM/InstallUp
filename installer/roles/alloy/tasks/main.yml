@@ -48,6 +48,12 @@
   when: "'alloy' not in ansible_facts.packages"
   tags: ["alloy", "install"]
 
+- name: Prevent specific packages from being updated (Hold)
+  ansible.builtin.dpkg_selections:
+    name: "{{ alloy }}"
+    selection: hold
+  tags: ["alloy", "install"]
+
 ###### Config section ######
 
 - name: Overwrite alloy config

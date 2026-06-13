@@ -24,6 +24,18 @@
   ansible.builtin.command: "pear upgrade --force PEAR"
   tags: ["roundcube", "install"]
 
+- name: Prevent specific packages from being updated (Hold)
+  ansible.builtin.dpkg_selections:
+    name: "{{ item }}"
+    selection: hold
+  loop:
+    - "{{ debconf_utils }}"
+    - "{{ aspell }}"
+    - "{{ aspell_pl }}"
+    - "{{ php_pspell }}"
+    - "{{ composer }}"
+  tags: ["roundcube", "install"]
+
 ###### Different version ######
 
 - name: Install roundcube for ubuntu 24

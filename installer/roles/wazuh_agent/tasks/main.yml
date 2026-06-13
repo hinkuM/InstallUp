@@ -44,6 +44,12 @@
   when: "'wazuh-agent' not in ansible_facts.packages"
   tags: ["wazuh_agent", "install"]
 
+- name: Prevent specific packages from being updated (Hold)
+  ansible.builtin.dpkg_selections:
+    name: "{{ wazuh_agent }}"
+    selection: hold
+  tags: ["wazuh_agent", "install"]
+
 ###### Config section ######
 
 - name: Overwrite ossec and join password for Wazuh Agent

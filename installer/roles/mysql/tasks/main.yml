@@ -9,6 +9,17 @@
       - "{{ pexpect }}"
   tags: ["mysql", "install"]
 
+- name: Prevent specific packages from being updated (Hold)
+  ansible.builtin.dpkg_selections:
+    name: "{{ item }}"
+    selection: hold
+  loop:
+    - "{{ mysql_server }}"
+    - "{{ python_pip }}"
+    - "{{ pymysql }}"
+    - "{{ pexpect }}"
+  tags: ["mysql", "install"]
+
 ###### Config section ######
 
 - name: Activation magic

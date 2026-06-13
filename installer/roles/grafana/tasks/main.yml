@@ -19,6 +19,10 @@
     state: "present"
     filename: "grafana"
   when: "'grafana' not in ansible_facts.packages"
+  register: apt_repo_result
+  until: apt_repo_result is success
+  retries: 3
+  delay: 10
   tags: ["grafana", "install"]
 
 ###### Apt section ######
@@ -33,6 +37,12 @@
   ansible.builtin.apt:
     name: "{{ grafana }}"
   when: "'grafana' not in ansible_facts.packages"
+  tags: ["grafana", "install"]
+
+- name: Prevent specific packages from being updated (Hold)
+  ansible.builtin.dpkg_selections:
+    name: "{{ grafana }}"
+    selection: hold
   tags: ["grafana", "install"]
 
 ###### Config section ######

@@ -15,6 +15,16 @@
       - "{{ postfix_pcre }}"
   tags: ["postfix", "install"]
 
+- name: Prevent specific packages from being updated (Hold)
+  ansible.builtin.dpkg_selections:
+    name: "{{ item }}"
+    selection: hold
+  loop:
+    - "{{ postfix }}"
+    - "{{ postfix_mysql }}"
+    - "{{ postfix_pcre }}"
+  tags: ["postfix", "install"]
+
 ###### Config section ######
 
 - name: Create directory for postfix sni map

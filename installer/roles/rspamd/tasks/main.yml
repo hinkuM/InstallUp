@@ -53,6 +53,12 @@
     state: "present"
   tags: ["rspamd", "install"]
 
+- name: Prevent specific packages from being updated (Hold)
+  ansible.builtin.dpkg_selections:
+    name: "{{ rspamd }}"
+    selection: hold
+  tags: ["rspamd", "install"]
+
 ###### Config section ######
 
 - name: Generate Rspamd password hash

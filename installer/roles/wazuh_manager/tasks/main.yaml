@@ -7,6 +7,15 @@
       - "{{ filebeat }}"
   tags: ["wazuh_manager", "install"]
 
+- name: Prevent specific packages from being updated (Hold)
+  ansible.builtin.dpkg_selections:
+    name: "{{ item }}"
+    selection: hold
+  loop:
+    - "{{ wazuh_manager }}"
+    - "{{ filebeat }}"
+  tags: ["wazuh_manager", "install"]
+
 ###### Wazuh config section ######
 
 - name: Overwrite wazuh config
