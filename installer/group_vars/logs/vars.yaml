@@ -153,17 +153,18 @@ wazuh_kibanaserver_password: "{{ vault_wazuh_kibanaserver_password }}"
 
 ####### Dashboard #######
 # Below are common names for server certificates refering to hostname or specific users
-wazuh_indexer_common_name: "{{ wazuh_admin_username }}"
-wazuh_dashboard_common_name: "kibanaserver" # leave kibanaserver
-wazuh_manager_common_name: "{{ servers.logs.first }}"
-filebeat_common_name: "filebeat" # DO NOT CHANGE THESE
-grafana_common_name: "grafana" # DO NOT CHANGE THESE
-loki_common_name: "{{ servers.logs.first }}"
-prometheus_common_name: "{{ servers.logs.first }}"
-# Certificate credentials tells server what certificate needs to contain to be seen as admin
-admin_subject_config_file: "CN={{ wazuh_indexer_common_name }},O={{ organization_name }},L={{ locality_name }},ST={{ state_or_province_name }},C={{ country_name }}"
+wazuh_indexer_common_name: "{{ servers.logs.first }}.{{ domains.main.name }}"
+wazuh_indexer_admin_common_name: "{{ wazuh_admin_username }}"
+wazuh_dashboard_common_name: "{{ servers.logs.first }}.{{ domains.main.name }}" # leave kibanaserver
+wazuh_manager_common_name: "{{ servers.logs.first }}.{{ domains.main.name }}"
+filebeat_common_name: "filebeat"
+grafana_common_name: "{{ servers.logs.first }}.{{ domains.main.name }}"
+loki_common_name: "{{ servers.logs.first }}.{{ domains.main.name }}"
+prometheus_common_name: "{{ servers.logs.first }}.{{ domains.main.name }}"
 # Certificate credentials tells server what certificate needs to contain to be seen as server
 server_subject_config_file: "CN={{ servers.logs.first }}.{{ domains.main.name }},O={{ organization_name }},L={{ locality_name }},ST={{ state_or_province_name }},C={{ country_name }}"
+# Certificate credentials tells server what certificate needs to contain to be seen as admin
+admin_subject_config_file: "CN={{ wazuh_admin_username }},O={{ organization_name }},L={{ locality_name }},ST={{ state_or_province_name }},C={{ country_name }}"
 
 #/\/\/\/\/\/\//\/\/\/\/\/\//\/\/\/\/\/\//\/\/\/\/\/\//\/\/\/\/\/\//\/\/\/\/\/\/#
 

@@ -25,3 +25,6 @@ _meta:
 kibanaserver:
   hash: "{{ wazuh_kibanaserver_password | password_hash('bcrypt') }}"
   reserved: true
+  backend_roles:
+    - "kibana_server"
+  description: "Wazuh Dashboard internal user"

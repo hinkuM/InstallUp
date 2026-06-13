@@ -26,7 +26,8 @@
     ansible_ssh_common_args: '-o PreferredAuthentications=password -o IdentitiesOnly=no -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null'
   roles:
     - system
-    - certs
+    - certbot
+    - certificates
 
 - name: Change ssh connection method to key only
   hosts: lan

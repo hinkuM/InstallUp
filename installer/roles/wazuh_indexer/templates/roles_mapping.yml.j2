@@ -19,10 +19,17 @@ readall:
 
 kibana_server:
   reserved: true
+  backend_roles:
+  - "kibana_server"
   users:
   - "kibanaserver"
 
 manage_wazuh_index:
+  reserved: false
+  users:
+  - "kibanaserver"
+
+security_rest_api_access:
   reserved: true
   users:
   - "kibanaserver"

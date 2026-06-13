@@ -18,7 +18,7 @@ bootstrap.memory_lock: true
 
 # ---------------------------------- Network -----------------------------------
 
-network.host: 0.0.0.0
+network.host: {{ servers.logs.first }}.{{ domains.main.name }}
 network.publish_host: {{ servers.logs.first }}.{{ domains.main.name }}
 
 # --------------------------------- Discovery ----------------------------------
@@ -51,11 +51,10 @@ plugins.security.ssl.http.enabled_ciphers:
 plugins.security.ssl.http.enabled_protocols:
   - "TLSv1.2"
 
-plugins.security.authcz.admin_dn:
- - "{{ admin_subject_config_file }}"
-
 plugins.security.nodes_dn:
-- "{{ server_subject_config_file }}"
+  - "{{ server_subject_config_file }}"
+plugins.security.authcz.admin_dn:
+  - "{{ admin_subject_config_file }}"
 
 plugins.security.restapi.roles_enabled: [all_access, security_rest_api_access]
 plugins.security.enable_snapshot_restore_privilege: true

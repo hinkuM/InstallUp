@@ -61,11 +61,13 @@ ssh_port: "4545"
 ansible_port: "{{ ssh_port }}"
 
 ####### Certificate and mail information #######
+# mail used for certbot certificate creation
+mail_for_certbot: "example_mail@example.com"
+
 # List of values needed to setup each domain in mail server as well as to create nginx https servers with certificates using certbot
 # Possible to add new entries but wasn't tested and it was all configurated for only ONE public IP so only domains.main.name will be bind to IP (rDNS), can be set in installer/host_vars/mail-node/vars.yaml
 # cert_domain   - name of subdomain used later for accessing mail website and generating certificate
 # domain        - name of the domain
-# mail          - mail used for certbot certificate creation
 # token         - this configuration uses cloudflare tokens (permissions needed:	Zone.Zone, Zone.DNS) to auto renew certificates
 # filename      - name of file where cloudflare token is stored (NOT PATH)
 # filter        - domain but with little changes, for regex to see "." as "." not wildcard 
@@ -80,7 +82,6 @@ ansible_port: "{{ ssh_port }}"
 cert_and_mail_data:
   - cert_domain: "mail.{{ domains.main.name }}"
     domain: "{{ domains.main.name }}"
-    mail: "your@email.com"
     token: "{{ vault_cloudflare_tokens.main }}"
     filename: "cloudflare_main_domain.ini"
     filter: "{{ domains.main.filter }}"
@@ -89,13 +90,18 @@ cert_and_mail_data:
     dkim_selector: mail
   - cert_domain: "poczta.{{ domains.second.name }}" # poczta = mail (different language)
     domain: "{{ domains.second.name }}"
-    mail: "your@email.com"
     token: "{{ vault_cloudflare_tokens.second }}"
     filename: "cloudflare_second_domain.ini"
     filter: "{{ domains.second.filter }}"
     public_ip: 17.66.55.123 # can differ
     postfix_name: smtp_example_two
     dkim_selector: poczta  # poczta = mail (different language)
+
+
+# array used for local certificate used in grafana and wazuh dashboard
+cert_private_data:
+  - cert_domain: "{{ servers.logs.first }}.{{ domains.main.name }}"
+    filename: "cloudflare_main_domain.ini"
 
 ####### Paths to important directories #######
 # Main directory for backups on logs server

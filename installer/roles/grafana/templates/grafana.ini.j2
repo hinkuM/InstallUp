@@ -71,7 +71,7 @@ root_url = https://{{ servers.logs.first }}.{{ domains.main.name }}:{{ grafana_d
 ;enable_gzip = false
 
 # https certs & key file
-cert_file = {{ grafana_cert_dir }}/server-crt.pem
+cert_file = {{ grafana_cert_dir }}/server-fullchain.pem
 cert_key = {{ grafana_cert_dir }}/server-key.pem
 
 # optional password to be used to decrypt key file

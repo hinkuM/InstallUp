@@ -11,6 +11,18 @@
     state: "present"
   tags: ["certbot", "install"]
 
+- name: Prevent specific packages from being updated (Hold)
+  ansible.builtin.dpkg_selections:
+    name: "{{ item }}"
+    selection: hold
+  loop:
+    - "{{ gcc }}"
+    - "{{ libaugeas_dev }}"
+    - "{{ python }}"
+    - "{{ python_dev }}"
+    - "{{ python_venv }}"
+  tags: ["certbot", "install"]
+
 - name: Create certbot venv
   ansible.builtin.command: "{{ python }} -m venv /opt/certbot"
   args:
@@ -30,9 +42,16 @@
   ansible.builtin.pip:
     name:
       - "certbot"
-      - "certbot-nginx"
       - "certbot-dns-cloudflare"
     virtualenv: "/opt/certbot"
+  tags: ["certbot", "install"]
+
+- name: Install latest version of certbot and plugins
+  ansible.builtin.pip:
+    name:
+      - "certbot-nginx"
+    virtualenv: "/opt/certbot"
+  when: "'mail' in group_names"
   tags: ["certbot", "install"]
 
 ###### Environment section ######
@@ -54,8 +73,6 @@
     mode: "0700"
   tags: ["certbot", "file"]
 
-###### Certificate section ######
-
 - name: Create cloudflare credential files
   ansible.builtin.copy:
     dest: "/root/.secrets/certbot/{{ item.filename }}"
@@ -63,10 +80,12 @@
       dns_cloudflare_api_token = {{ item.token }}
     owner: "root"
     group: "root"      
-    mode: "0700"
+    mode: "0600"
   loop: "{{ cert_and_mail_data }}"
   no_log: true
   tags: ["certbot", "file"]
+
+###### MAIL Certificate section ######
 
 - name: Obtain certificate for all domains
   ansible.builtin.command: >
@@ -77,11 +96,31 @@
     -d {{ item.cert_domain }}
     --non-interactive
     --agree-tos
-    -m {{ item.mail }}
+    -m {{ mail_for_certbot }}
   args:
     creates: "/etc/letsencrypt/live/{{ item.cert_domain }}/fullchain.pem"
   loop: "{{ cert_and_mail_data }}"
   no_log: true
+  when: "'mail' in group_names"
+  tags: ["certbot"]
+
+###### LOGS Certificate section ######
+
+- name: Obtain certificate for all domains
+  ansible.builtin.command: >
+    certbot certonly
+    --dns-cloudflare
+    --dns-cloudflare-credentials /root/.secrets/certbot/{{ item.filename }}
+    --dns-cloudflare-propagation-seconds 60
+    -d {{ item.cert_domain }}
+    --non-interactive
+    --agree-tos
+    -m {{ mail_for_certbot }}
+  args:
+    creates: "/etc/letsencrypt/live/{{ item.cert_domain }}/fullchain.pem"
+  loop: "{{ cert_private_data }}"
+  no_log: true
+  when: "'logs' in group_names"
   tags: ["certbot"]
 
 ###### Handler section ######
@@ -118,4 +157,30 @@
       systemctl reload dovecot
       systemctl reload postfix
     mode: "0755"
+  when: "'mail' in group_names"
+  tags: ["certbot", "file"]
+
+- name: Create Certbot renew deploy hook for private services
+  ansible.builtin.copy:
+    dest: "/etc/letsencrypt/renewal-hooks/deploy/reload-private.sh"
+    content: |
+      DOMAIN_NAME="{{ cert_private_data[0].cert_domain }}"
+      
+      cp /etc/letsencrypt/live/$DOMAIN_NAME/cert.pem {{ wazuh_dashboard_cert_dir }}/server-crt.pem
+      cp /etc/letsencrypt/live/$DOMAIN_NAME/fullchain.pem {{ wazuh_dashboard_cert_dir }}/server-fullchain.pem
+      cp /etc/letsencrypt/live/$DOMAIN_NAME/privkey.pem {{ wazuh_dashboard_cert_dir }}/server-key.pem
+      
+      cp /etc/letsencrypt/live/$DOMAIN_NAME/cert.pem {{ grafana_cert_dir }}/server-crt.pem
+      cp /etc/letsencrypt/live/$DOMAIN_NAME/fullchain.pem {{ grafana_cert_dir }}/server-fullchain.pem
+      cp /etc/letsencrypt/live/$DOMAIN_NAME/privkey.pem {{ grafana_cert_dir }}/server-key.pem
+      
+      chown root:wazuh-dashboard {{ wazuh_dashboard_cert_dir }}/server-*.pem
+      chown root:grafana {{ grafana_cert_dir }}/server-*.pem
+
+      systemctl restart grafana-server
+      systemctl restart loki
+      systemctl restart prometheus
+      systemctl restart wazuh-dashboard
+    mode: "0755"
+  when: "'logs' in group_names"
   tags: ["certbot", "file"]

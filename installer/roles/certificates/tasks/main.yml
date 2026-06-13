@@ -14,7 +14,8 @@
     - "{{ grafana_cert_dir }}"
     - "{{ loki_cert_dir }}"
     - "{{ prometheus_cert_dir }}"
-  tags: ["certs"]
+    - "{{ clients_cert_dir }}"
+  tags: ["certificates", "ca", "server", "clients"]
 
 ###### Root CA section ######
 
@@ -25,7 +26,7 @@
     type: "RSA"
     mode: "0700"
   no_log: true
-  tags: ["certs"]
+  tags: ["certificates", "ca"]
 
 - name: Generate Root CSR to generate CA
   community.crypto.openssl_csr:
@@ -41,7 +42,7 @@
     key_usage_critical: true
     mode: "0444"
   no_log: true
-  tags: ["certs"]   
+  tags: ["certificates", "ca"]   
 
 - name: Generate Root CA self-signed certificate from CSR
   community.crypto.x509_certificate:
@@ -52,7 +53,7 @@
     provider: "selfsigned"
     mode: "0444"
   no_log: true
-  tags: ["certs"]   
+  tags: ["certificates", "ca"]   
 
 ###### System trust section ######
 
@@ -63,14 +64,14 @@
     remote_src: true
     mode: "0444"
   no_log: true
-  tags: ["certs"]
+  tags: ["certificates", "ca"]
 
 - name: Update CA trust
   ansible.builtin.command: "update-ca-certificates"
   no_log: true
-  tags: ["certs"]
+  tags: ["certificates", "ca"]
 
-###### Server certificates section ######
+###### Server certificates section (NOT LETS ENCRYPT) ######
 
 - name: Generate server keys
   community.crypto.openssl_privatekey:
@@ -83,14 +84,12 @@
     mode: "0440"
   loop:
     - "{{ wazuh_indexer_cert_dir }}"
-    - "{{ wazuh_dashboard_cert_dir }}"
     - "{{ wazuh_manager_cert_dir }}"
     - "{{ filebeat_cert_dir }}"
-    - "{{ grafana_cert_dir }}"
     - "{{ loki_cert_dir }}"
     - "{{ prometheus_cert_dir }}"
   no_log: true
-  tags: ["certs"]
+  tags: ["certificates", "ca", "server"]
 
 - name: Generate server CSRs
   community.crypto.openssl_csr:
@@ -103,25 +102,27 @@
     common_name: "{{ item.cName }}"
     subject_alt_name:
       - "DNS:{{ servers.logs.first }}.{{ domains.main.name }}"
-      - "DNS:{{ servers.logs.first }}"
+    extended_key_usage:
+      - clientAuth
+      - serverAuth
+    key_usage:
+      - digitalSignature
+      - keyEncipherment
+    key_usage_critical: true
     mode: "0440"
   loop: 
     - path: "{{ wazuh_indexer_cert_dir }}"
       cName: "{{ wazuh_indexer_common_name }}"
-    - path: "{{ wazuh_dashboard_cert_dir }}"
-      cName: "{{ wazuh_dashboard_common_name }}"
     - path: "{{ wazuh_manager_cert_dir }}"
       cName: "{{ wazuh_manager_common_name }}"
     - path: "{{ filebeat_cert_dir }}"
       cName: "{{ filebeat_common_name }}"
-    - path: "{{ grafana_cert_dir }}"
-      cName: "{{ grafana_common_name }}"
     - path: "{{ loki_cert_dir }}"
       cName: "{{ loki_common_name }}"
     - path: "{{ prometheus_cert_dir }}"
       cName: "{{ prometheus_common_name }}"
   no_log: true
-  tags: ["certs"]
+  tags: ["certificates", "ca", "server"]
 
 - name: Sign all server certificates with Root CA
   community.crypto.x509_certificate:
@@ -130,18 +131,86 @@
     ownca_path: "{{ root_ca_dir }}/root-ca.pem"
     ownca_privatekey_path: "{{ root_ca_key_dir }}/root-ca-key.pem"
     provider: "ownca"
-    selfsigned_not_after: "+825d"
+    selfsigned_not_after: "+3650d"
     mode: "0440"
   loop:
     - "{{ wazuh_indexer_cert_dir }}"
-    - "{{ wazuh_dashboard_cert_dir }}"
     - "{{ wazuh_manager_cert_dir }}"
     - "{{ filebeat_cert_dir }}"
-    - "{{ grafana_cert_dir }}"
     - "{{ loki_cert_dir }}"
     - "{{ prometheus_cert_dir }}"
   no_log: true
-  tags: ["certs"]
+  tags: ["certificates", "ca", "server"]
+
+###### Server certificates section (LETS ENCRYPT) ######
+
+- name: Sync initial Certbot keys to target stack directories
+  ansible.builtin.copy:
+    src: "/etc/letsencrypt/live/{{ item.0.cert_domain }}/{{ item.1.src }}"
+    dest: "{{ item.1.dest_dir }}/{{ item.1.dest_name }}"
+    remote_src: true
+    owner: "root"
+    group: "root"
+    mode: "0440"
+  with_nested:
+    - "{{ cert_private_data }}"
+    - - { dest_dir: "{{ wazuh_dashboard_cert_dir }}", src: "cert.pem", dest_name: "server-crt.pem" }
+      - { dest_dir: "{{ wazuh_dashboard_cert_dir }}", src: "fullchain.pem", dest_name: "server-fullchain.pem" }
+      - { dest_dir: "{{ wazuh_dashboard_cert_dir }}", src: "privkey.pem", dest_name: "server-key.pem" }
+      - { dest_dir: "{{ grafana_cert_dir }}", src: "cert.pem", dest_name: "server-crt.pem" }
+      - { dest_dir: "{{ grafana_cert_dir }}", src: "fullchain.pem", dest_name: "server-fullchain.pem" }
+      - { dest_dir: "{{ grafana_cert_dir }}", src: "privkey.pem", dest_name: "server-key.pem" }
+  when: "'logs' in group_names"
+  tags: ["certbot", "file"]
+
+###### Wazuh indexer admin certificates section ######
+
+- name: Generate wazuh dashboard admin server keys
+  community.crypto.openssl_privatekey:
+    path: "{{ wazuh_indexer_cert_dir }}/admin-key.pem"
+    size: 4096
+    type: "RSA"
+    format: "pkcs8"
+    cipher: "auto"
+    passphrase: ""
+    mode: "0440"
+  no_log: true
+  tags: ["certificates", "ca", "server"]
+
+- name: Generate wazuh dashboard admin server CSRs
+  community.crypto.openssl_csr:
+    path: "{{ wazuh_indexer_cert_dir }}/admin.csr"
+    privatekey_path: "{{ wazuh_indexer_cert_dir }}/admin-key.pem"
+    country_name: "{{ country_name }}"
+    state_or_province_name: "{{ state_or_province_name }}"
+    locality_name: "{{ locality_name }}"
+    organization_name: "{{ organization_name }}"
+    common_name: "{{ wazuh_indexer_admin_common_name }}"
+    subject_alt_name:
+      - "DNS:{{ servers.logs.first }}.{{ domains.main.name }}"
+      - "DNS:{{ servers.logs.first }}"
+    extended_key_usage:
+      - clientAuth
+      - serverAuth
+    key_usage:
+      - digitalSignature
+      - keyEncipherment
+    key_usage_critical: true
+    mode: "0440"
+  no_log: true
+  tags: ["certificates", "ca", "server"]
+
+- name: Sign all wazuh dashboard admin server certificates with Root CA
+  community.crypto.x509_certificate:
+    path: "{{ wazuh_indexer_cert_dir }}/admin.pem"
+    csr_path: "{{ wazuh_indexer_cert_dir }}/admin.csr"
+    ownca_path: "{{ root_ca_dir }}/root-ca.pem"
+    ownca_privatekey_path: "{{ root_ca_key_dir }}/root-ca-key.pem"
+    provider: "ownca"
+    selfsigned_not_after: "+825d"
+    mode: "0440"
+  no_log: true
+  tags: ["certificates", "ca", "server"]
 
 ###### Client certificates section ######
 
@@ -153,7 +222,7 @@
     mode: "0440"
   loop: "{{ computers }}"
   no_log: true
-  tags: ["certs"]
+  tags: ["certificates", "ca", "clients"]
 
 - name: Generate client CSRs
   community.crypto.openssl_csr:
@@ -170,7 +239,7 @@
     mode: "0440"
   loop: "{{ computers }}"
   no_log: true
-  tags: ["certs"]
+  tags: ["certificates", "ca", "clients"]
 
 - name: Sign client certificates with Root CA
   community.crypto.x509_certificate:
@@ -183,7 +252,7 @@
     mode: "0440"
   loop: "{{ computers }}"
   no_log: true
-  tags: ["certs"]
+  tags: ["certificates", "ca", "clients"]
 
 ###### Cleanup section ######
 
@@ -194,23 +263,31 @@
   loop:
     - "{{ wazuh_indexer_cert_dir }}"
     - "{{ wazuh_dashboard_cert_dir }}"
+    - "{{ wazuh_manager_cert_dir }}"
+    - "{{ grafana_cert_dir }}"
     - "{{ filebeat_cert_dir }}"
     - "{{ loki_cert_dir }}"
     - "{{ prometheus_cert_dir }}"
-  tags: ["certs"]
+  tags: ["certificates", "ca", "server"]
+
+- name: Remove wazuh indexer CSR file
+  ansible.builtin.file:
+    path: "{{ wazuh_indexer_cert_dir }}/admin.csr"
+    state: "absent"
+  tags: ["certificates", "ca", "server"]
 
 - name: Remove client CSR files
   ansible.builtin.file:
     path: "{{ clients_cert_dir }}/{{ item.hostname  }}.csr"
     state: "absent"
   loop: "{{ computers }}"
-  tags: ["certs"]
+  tags: ["certificates", "ca", "clients"]
 
 - name: Remove root CA CSR files
   ansible.builtin.file:
     path: "{{ root_ca_dir }}/root-ca.csr"
     state: "absent"
-  tags: ["certs"]
+  tags: ["certificates", "ca"]
 
 ###### Environment section ######
 
@@ -221,7 +298,7 @@
     mode: "0750"
   delegate_to: localhost
   become: false
-  tags: ["certs"]
+  tags: ["certificates", "ca", "clients"]
 
 - name: Create directories on controller pc for each client
   ansible.builtin.file:
@@ -231,7 +308,7 @@
   delegate_to: localhost
   become: false
   loop: "{{ computers }}"
-  tags: ["certs"]
+  tags: ["certificates", "ca", "clients"]
 
 - name: Fetch client certificates to controller
   ansible.builtin.fetch:
@@ -240,7 +317,7 @@
     flat: true
   loop: "{{ computers }}"
   no_log: true
-  tags: ["certs"]
+  tags: ["certificates", "ca", "clients"]
 
 - name: Fetch client keys to controller
   ansible.builtin.fetch:
@@ -249,7 +326,7 @@
     flat: true
   loop: "{{ computers }}"
   no_log: true
-  tags: ["certs"]
+  tags: ["certificates", "ca", "clients"]
 
 - name: Fetch root CA to controller
   ansible.builtin.fetch:
@@ -257,7 +334,7 @@
     dest: "{{ playbook_dir }}/client_certificates/root-ca.pem"
     flat: true
   no_log: true
-  tags: ["certs"]
+  tags: ["certificates", "ca", "clients"]
 
 ###### SSH keys section ######
 
@@ -270,4 +347,4 @@
   delegate_to: localhost
   become: false
   loop: "{{ computers }}"
-  tags: ["certs"]
+  tags: ["certificates", "ssh_key"]
