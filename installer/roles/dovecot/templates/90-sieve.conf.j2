@@ -20,7 +20,7 @@
 # location is interpreted as a local filesystem path pointing to a Sieve script
 # file or directory. Refer to Pigeonhole wiki or INSTALL file for more
 # information.
-{% if ansible_distribution_major_version == '24' %}
+{% if ansible_facts['distribution_major_version'] == '24' %}
 plugin {
   # The location of the user's main Sieve script or script storage. The LDA
   # Sieve plugin uses this to find the active script for Sieve filtering at

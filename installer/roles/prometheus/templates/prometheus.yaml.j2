@@ -3,7 +3,7 @@ global:
   evaluation_interval: 15s 
   external_labels:
     monitor: 'central-monitor'
-    origin_prometheus: '{{ ansible_hostname }}'
+    origin_prometheus: '{{ ansible_facts["hostname"] }}'
 
 rule_files:
   - 'prometheus.rules.yml'

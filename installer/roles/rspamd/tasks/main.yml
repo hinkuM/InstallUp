@@ -13,7 +13,7 @@
     force: false
   when: 
     - "'rspamd' not in ansible_facts.packages"
-    - "ansible_distribution_major_version == '24'"
+    - "ansible_facts['distribution_major_version'] == '24'"
   tags: ["rspamd", "install"]
 
 - name: Convert rspamd PGP key to GPG keyring
@@ -22,19 +22,19 @@
     creates: "/etc/apt/keyrings/rspamd.gpg"
   when: 
     - "'rspamd' not in ansible_facts.packages"
-    - "ansible_distribution_major_version == '24'"
+    - "ansible_facts['distribution_major_version'] == '24'"
   tags: ["rspamd", "install"]
 
 # change when rspamd releases new version for ubuntu 26
 - name: Add repository
   ansible.builtin.apt_repository:
-    repo: "deb [signed-by=/etc/apt/keyrings/rspamd.gpg] https://rspamd.com/apt-stable/ {{ 'noble' if ansible_distribution_major_version == '26' else ansible_facts.distribution_release }} main"
+    repo: "deb [signed-by=/etc/apt/keyrings/rspamd.gpg] https://rspamd.com/apt-stable/ {{ 'noble' if ansible_facts['distribution_major_version'] == '26' else ansible_facts.distribution_release }} main"
     filename: "rspamd"
     state: "present"
     update_cache: true
   when: 
     - "'rspamd' not in ansible_facts.packages"
-    - "ansible_distribution_major_version == '24'"
+    - "ansible_facts['distribution_major_version'] == '24'"
   tags: ["rspamd", "install"]
 
 ###### Apt section ######
@@ -44,7 +44,7 @@
     update_cache: true
   when: 
     - "'rspamd' not in ansible_facts.packages"
-    - "ansible_distribution_major_version == '24'"
+    - "ansible_facts['distribution_major_version'] == '24'"
   tags: ["rspamd", "install"]
 
 - name: Install rspamd

@@ -46,7 +46,7 @@
     state: "present"
   when: 
     - security_mysql_result.changed
-    - "ansible_distribution_major_version == '24'"
+    - "ansible_facts['distribution_major_version'] == '24'"
   no_log: true
   tags: ["mysql", "once"]
 
@@ -57,7 +57,7 @@
     mysql_auth_plugin: "caching_sha2_password"
   when: 
     - security_mysql_result.changed
-    - "ansible_distribution_major_version == '26'"
+    - "ansible_facts['distribution_major_version'] == '26'"
   no_log: true
   tags: ["mysql", "once"]
 
@@ -124,7 +124,7 @@
     login_password: "{{ mysql_root_password }}"
   loop: "{{ databases }}"
   no_log: true
-  when: "ansible_distribution_major_version == '24'"
+  when: "ansible_facts['distribution_major_version'] == '24'"
   tags: ["mysql", "once"]
 
 - name: Create MySQL users (ubuntu 26)
@@ -136,7 +136,7 @@
     FLUSH PRIVILEGES;"
   vars:
     mysql_auth_plugin: "caching_sha2_password"
-  when: "ansible_distribution_major_version == '26'"
+  when: "ansible_facts['distribution_major_version'] == '26'"
   loop: "{{ databases }}"
   # no_log: true
   tags: ["mysql", "once"]

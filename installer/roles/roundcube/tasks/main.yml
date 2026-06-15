@@ -41,7 +41,7 @@
 - name: Install roundcube for ubuntu 24
   ansible.builtin.import_tasks:
     file: "noble.yaml"
-  when: "ansible_distribution_major_version == '24'"
+  when: "ansible_facts['distribution_major_version'] == '24'"
   tags: ["roundcube"]
 
 
@@ -49,5 +49,5 @@
 - name: Install roundcube for ubuntu 26
   ansible.builtin.import_tasks:
     file: "resolute.yaml"
-  when: "ansible_distribution_major_version == '26'"
+  when: "ansible_facts['distribution_major_version'] == '26'"
   tags: ["roundcube"]

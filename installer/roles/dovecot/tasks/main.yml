@@ -138,7 +138,7 @@
     - source: "auth-sql.conf.ext"
       destination: "/etc/dovecot/conf.d/auth-sql.conf.ext"
   no_log: true
-  when: "ansible_distribution_major_version == '26'"
+  when: "ansible_facts['distribution_major_version'] == '26'"
   tags: ["dovecot", "file"]
 
 - name: Make dir for sieve scripts

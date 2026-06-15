@@ -2,7 +2,7 @@
 ssl = {{ dovecot_ssl }}
 
 
-{% if ansible_distribution_major_version == '24' %}
+{% if ansible_facts['distribution_major_version'] == '24' %}
 ssl_cert = </etc/letsencrypt/live/{{ cert_and_mail_data[0].cert_domain }}/fullchain.pem
 ssl_key = </etc/letsencrypt/live/{{ cert_and_mail_data[0].cert_domain }}/privkey.pem
 
@@ -17,7 +17,7 @@ ssl_dh = </usr/share/dovecot/dh.pem
 {% endif %}
 
 
-{% if ansible_distribution_major_version == '26' %}
+{% if ansible_facts['distribution_major_version'] == '26' %}
 ssl_server_cert_file = /etc/letsencrypt/live/{{ cert_and_mail_data[0].cert_domain }}/fullchain.pem
 ssl_server_key_file = /etc/letsencrypt/live/{{ cert_and_mail_data[0].cert_domain }}/privkey.pem
 

@@ -58,12 +58,12 @@ auth_verbose = yes
 #mail_debug = no
 
 # Show protocol level SSL errors.
-{% if ansible_distribution_major_version == '24' %}
+{% if ansible_facts['distribution_major_version'] == '24' %}
 verbose_ssl = yes
 {% endif %}
 
 # mail_log plugin provides more event logging for mail processes.
-{% if ansible_distribution_major_version == '24' %}
+{% if ansible_facts['distribution_major_version'] == '24' %}
 plugin {
   # Events to log. Also available: flag_change append
   #mail_log_events = delete undelete expunge copy mailbox_delete mailbox_rename

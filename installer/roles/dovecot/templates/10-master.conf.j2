@@ -26,7 +26,7 @@ service imap-login {
   # Number of connections to handle before starting a new process. Typically
   # the only useful values are 0 (unlimited) or 1. 1 is more secure, but 0
   # is faster. <doc/wiki/LoginProcess.txt>
-{% if ansible_distribution_major_version == '24' %}
+{% if ansible_facts['distribution_major_version'] == '24' %}
   service_count = 1
 {% endif %}
 
@@ -68,7 +68,7 @@ service imap {
 
   # Max. number of IMAP processes (connections)
   #process_limit = 1024
-{% if ansible_distribution_major_version == '24' %}
+{% if ansible_facts['distribution_major_version'] == '24' %}
   idle_kill = 20 mins
 {% endif %}
 }

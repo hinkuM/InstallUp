@@ -21,7 +21,7 @@ $config = [];
 
 include("/etc/roundcube/debian-db-roundcube.php");
 
-{% if ansible_distribution_major_version == '26' %}
+{% if ansible_facts['distribution_major_version'] == '26' %}
 $config['db_dsnw'] = 'mysql://{{ roundcube_db_username }}:{{ roundcube_db_password }}@localhost/{{ roundcube_db_name }}';
 $config['assets_path'] = '';
 {% endif %}
@@ -86,7 +86,7 @@ $config['plugins'] = [
   'password',
   'managesieve',
   'markasjunk',
-  {% if ansible_distribution_major_version == '24' %}
+  {% if ansible_facts['distribution_major_version'] == '24' %}
   'twofactor_gauthenticator',
   {% endif %}
 ];

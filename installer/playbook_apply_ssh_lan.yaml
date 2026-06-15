@@ -11,7 +11,7 @@
 
     - name: Dynamically set sudo executable based on Ubuntu version
       set_fact:
-        ansible_become_exe: "{{ 'sudo.ws' if (ansible_distribution_major_version == '26') else 'sudo' }}"
+        ansible_become_exe: "{{ 'sudo.ws' if (ansible_facts['distribution_major_version'] == '26') else 'sudo' }}"
       become: false
       tags: ["always"]
 
@@ -42,7 +42,7 @@
 
     - name: Dynamically set sudo executable based on Ubuntu version
       set_fact:
-        ansible_become_exe: "{{ 'sudo.ws' if (ansible_distribution_major_version == '26') else 'sudo' }}"
+        ansible_become_exe: "{{ 'sudo.ws' if (ansible_facts['distribution_major_version'] == '26') else 'sudo' }}"
       become: false
       tags: ["always"]
 

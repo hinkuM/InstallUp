@@ -16,7 +16,7 @@ loki.relabel "files" {
 
     rule {
         action = "replace"
-        replacement = "{{ ansible_hostname }}"
+        replacement = '{{ ansible_facts["hostname"] }}'
         target_label = "host"
     }
 }
@@ -25,7 +25,7 @@ loki.source.journal "read"  {
     forward_to = [loki.relabel.journal.receiver]
     labels = {
         "program" = "journal",
-        "host" = "{{ ansible_hostname }}",
+        "host" = '{{ ansible_facts["hostname"] }}',
         "group" = "standalone-pc",
     }
 }
@@ -67,7 +67,7 @@ prometheus.relabel "add_labels_metrics" {
 
   rule {
     action       = "replace"
-    replacement  = "{{ ansible_hostname }}"
+    replacement  = '{{ ansible_facts["hostname"] }}'
     target_label = "host"
   }
   rule {
@@ -94,7 +94,7 @@ prometheus.relabel "add_labels_nginx" {
 
   rule {
     action       = "replace"
-    replacement  = "{{ ansible_hostname }}"
+    replacement  = '{{ ansible_facts["hostname"] }}'
     target_label = "host"
   }
   rule {

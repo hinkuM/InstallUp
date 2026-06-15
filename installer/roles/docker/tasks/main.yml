@@ -16,7 +16,7 @@
 
 - name: Add docker apt repository
   ansible.builtin.apt_repository:
-    repo: "deb [signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu {{ ansible_distribution_release }} stable"
+    repo: 'deb [signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu {{ ansible_facts["distribution_release"] }} stable'
     state: "present"
     filename: "docker.list"
   when: "'containerd.io' not in ansible_facts.packages"
@@ -47,7 +47,7 @@
 
 - name: Remove docker repository
   ansible.builtin.apt_repository:
-    repo: "deb [signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu {{ ansible_distribution_release }} stable"
+    repo: 'deb [signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu {{ ansible_facts["distribution_release"] }} stable'
     state: "absent"
     filename: "kubernetes"
   tags: ["kubernetes", "install"]

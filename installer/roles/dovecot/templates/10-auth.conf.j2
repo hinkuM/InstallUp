@@ -1,4 +1,4 @@
-{% if ansible_distribution_major_version == '24' %}
+{% if ansible_facts['distribution_major_version'] == '24' %}
 disable_plaintext_auth = yes
 {% endif %}
 auth_mechanisms = login

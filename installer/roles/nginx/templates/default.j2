@@ -1,13 +1,13 @@
 {% for item in cert_and_mail_data | unique %}
 server {
-    {% if ansible_distribution_major_version == '24' %}
+    {% if ansible_facts['distribution_major_version'] == '24' %}
     listen 443 ssl http2;
     listen [::]:443 ssl http2;
 
 
     root /usr/share/roundcube;
     {% endif %}
-    {% if ansible_distribution_major_version == '26' %}
+    {% if ansible_facts['distribution_major_version'] == '26' %}
     listen 443 ssl;
     listen [::]:443 ssl;
     http2 on;
