@@ -37,8 +37,10 @@ All names of packages and some links I used are mentioned in [THIRD-PARTY-NOTICE
  ┣━ 📄 inventory.yaml                   # Master list of hosts and groups
  ┣━ ⚙️ playbook_apply_ssh_K8S.yaml      # Secures K8s SSH (certs)
  ┣━ ⚙️ playbook_apply_ssh_lan.yaml      # Secures LAN SSH (certs)
+ ┣━ ⚙️ playbook_deploy_certs.yaml       # Runs all roles using certficates to restart them after deploying cert files
  ┣━ ⚙️ playbook_kubernetes.yaml         # K8s cluster setup (master, worker)
  ┣━ ⚙️ playbook_lan.yaml                # LAN infra setup (mail, log servers)
+ ┣━ ⚙️ playbook_renew_certs.yaml        # Deletes all certificates and creates new ones on LOGS host
  ┗━ 🔑 playbook_ssh_key_change.yaml     # Replaces or removes SSH keys
 ```
 
