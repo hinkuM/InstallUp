@@ -47,6 +47,7 @@ All names of packages and some links I used are mentioned in [THIRD-PARTY-NOTICE
 </br>
 
 ## 🔥 Step by step on how this *beast* work
+  0. Install: ansible-core, python3, ssh-askpass; SSH into all hosts to save fingerprint
   1. Configurate one host (usually **firewall**) to handle **DNS**, **DHCP**, **NAT forwarding** (for *mail server*), **firewall rules** for each local network
       - I'm using [OPNsense](https://opnsense.org/) as `firewall`
       - Each local network (`MAIL`, `LAN`, `KUBERNETES`) is different ethernet card
@@ -55,7 +56,7 @@ All names of packages and some links I used are mentioned in [THIRD-PARTY-NOTICE
           - **Mail network** - Only mail server/s
           - **LAN network** - VPN clients, *logs server* and other hosts used by other networks (*KMS* for example)
           - **KUBERNETES network** - Kubernetes control plane and agents,</br> (*easier to manage firewall rules on OPNsense rather than fight with kubernetes*)
-  3. Create and insert plain text password into `.vault_pass` for ansible vault encryption, same directory as `START.sh`
+  3. Create and insert plain text password into `.vault_pass` file (set permissions to 600) for ansible vault encryption, same directory as `START.sh`
   4. Read and adjust variables in `inventory.yaml` and inside folders `group_vars/` and `host_vars/`
       - Each folder's name is related to group (`group_vars/`) or custom name inside every `hosts` list for each computer (`host_vars/`) mentioned in `inventory.yaml`
       - `vault.yaml` files should be encrypted after changing values, either by command [here](#️-useful-commands-during-configuration) or `START.sh`
