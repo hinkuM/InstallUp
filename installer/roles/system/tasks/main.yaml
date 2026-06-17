@@ -43,7 +43,7 @@
 ###### System section ######
 
 - name: Disable swap
-  ansible.posix.mount:
+  ansible.builtin.mount:
     name: "{{ item }}"
     fstype: "swap"
     state: "absent"
@@ -117,7 +117,7 @@
 
 - name: Copy certificates to this pc
   ansible.builtin.copy:
-    src: "{{ playbook_dir }}/client_certificates/{{ ansible_hostname }}/{{ ansible_hostname }}-{{item}}"
+    src: '{{ playbook_dir }}/client_certificates/{{ ansible_facts["hostname"] }}/{{ ansible_facts["hostname"] }}-{{item}}'
     dest: "{{ clients_cert_dir }}/client-{{ item }}"
     mode: "0640"
     owner: "root"

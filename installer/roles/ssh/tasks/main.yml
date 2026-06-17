@@ -17,7 +17,7 @@
   ansible.posix.authorized_key:
     user: "{{ new_admin_user }}"
     state: present
-    key: "{{ lookup('file', playbook_dir ~ '/ssh_keys/' ~ ansible_hostname ~ '.pub') }}"
+    key: "{{ lookup('file', playbook_dir ~ '/ssh_keys/' ~ ansible_facts['hostname'] ~ '.pub') }}"
     exclusive: false
   tags: ["ssh"]
 
