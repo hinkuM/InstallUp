@@ -49,7 +49,6 @@
     - "{{ python_openshift }}"
     - "{{ python_yaml }}"
     - "{{ skopeo }}"
-    - "{{ acl }}"
   tags: ["kubernetes", "install"]
 
 ###### Environment section ######
@@ -386,6 +385,7 @@
   ansible.builtin.apt:
     name: "{{ acl }}"
     state: "absent"
+    allow_change_held_packages: true
   tags: ["kubernetes", "install", "pod"]
 
 - name: Remove Grafana Helm repo

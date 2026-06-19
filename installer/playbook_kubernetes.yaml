@@ -21,11 +21,9 @@
       become: false
       tags: ["always"]
   roles:
-    - system
     - docker
     - longhorn
     - kubernetes
-    - logrotate
     
 - name: Perfom package cleaning
   hosts: kubernetes

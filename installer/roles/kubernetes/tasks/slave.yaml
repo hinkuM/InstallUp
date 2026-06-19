@@ -75,7 +75,7 @@
 - name: Join slave to master using .sh file
   ansible.builtin.shell: "/tmp/join_command.sh"
   args:
-    creates: "/etc/kubernetes/cluster_was.joined"
+    creates: "/etc/kubernetes/kubelet.conf"
   tags: ["kubernetes", "install"]
 
 - name: Delete join command script

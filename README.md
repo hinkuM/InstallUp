@@ -47,7 +47,7 @@ All names of packages and some links I used are mentioned in [THIRD-PARTY-NOTICE
 </br>
 
 ## 🔥 Step by step on how this *beast* work
-  0. Install: ansible-core, python3, ssh-askpass; SSH into all hosts to save fingerprint
+  0. Install: ansible-core, python3, ssh-askpass, as well as `ansible-galaxy collection install kubernetes.core --upgrade`; SSH into all hosts to save fingerprint
   1. Configurate one host (usually **firewall**) to handle **DNS**, **DHCP**, **NAT forwarding** (for *mail server*), **firewall rules** for each local network
       - I'm using [OPNsense](https://opnsense.org/) as `firewall`
       - Each local network (`MAIL`, `LAN`, `KUBERNETES`) is different ethernet card
