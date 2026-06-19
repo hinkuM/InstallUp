@@ -87,18 +87,20 @@ ports:
     - "1514"
     - "1515"
     - "3100"
+    - "3310"
+    - "7357"
     - "{{ ssh_port }}"
     - "9090"
     - "12345"
-  special:
-    - action: OUTPUT
-      source: "{{ servers.mail.first }}.{{ domains.main.name }}"
-      destination: "{{ servers.logs.first }}.{{ domains.main.name }}"
-      port: "3310"
-    - action: OUTPUT
-      source: "{{ servers.mail.first }}.{{ domains.main.name }}"
-      destination: "{{ servers.logs.first }}.{{ domains.main.name }}"
-      port: "7357"
+  # special:
+  #   - action: OUTPUT
+  #     source: "{{ servers.mail.first }}.{{ domains.main.name }}"
+  #     destination: "{{ servers.logs.first }}.{{ domains.main.name }}"
+  #     port: "3310"
+  #   - action: OUTPUT
+  #     source: "{{ servers.mail.first }}.{{ domains.main.name }}"
+  #     destination: "{{ servers.logs.first }}.{{ domains.main.name }}"
+  #     port: "7357"
 
 ####### Alloy #######
 # List of files that alloy should monitor and send to loki

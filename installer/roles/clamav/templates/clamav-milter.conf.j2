@@ -1,4 +1,4 @@
-MilterSocket inet:7357@{{ servers.mail.first }}.{{ domains.main.name }}
+MilterSocket inet:7357@0.0.0.0
 ClamdSocket unix:/var/run/clamav/clamd.ctl
 
 ReadTimeout 300
@@ -8,7 +8,11 @@ OnInfected Reject
 OnFail Defer
 OnClean Accept
 
+PidFile /run/clamav/clam.pid
+
 TemporaryDirectory /var/lib/clamav/tmp
+FixStaleSocket yes
+ReadTimeout 300
 
 LogFile /var/log/clamav/clamav-milter.log
 LogTime true

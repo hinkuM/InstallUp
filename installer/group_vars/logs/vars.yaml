@@ -53,20 +53,22 @@ ports:
     - "{{ grafana_dashboard_port }}"
     - "{{ wazuh_dashboard_port }}"
     - "3100"
+    - "3310"
+    - "7357"
     - "9090"
   output:
     - "80"
     - "443"
     - "587"
-  special:
-    - action: INPUT
-      source: "{{ servers.mail.first }}.{{ domains.main.name }}"
-      destination: "{{ servers.logs.first }}.{{ domains.main.name }}"
-      port: "3310"
-    - action: INPUT
-      source: "{{ servers.mail.first }}.{{ domains.main.name }}"
-      destination: "{{ servers.logs.first }}.{{ domains.main.name }}"
-      port: "7357"
+  # special:
+  #   - action: INPUT
+  #     source: "{{ servers.mail.first }}.{{ domains.main.name }}"
+  #     destination: "{{ servers.logs.first }}.{{ domains.main.name }}"
+  #     port: "3310"
+  #   - action: INPUT
+  #     source: "{{ servers.mail.first }}.{{ domains.main.name }}"
+  #     destination: "{{ servers.logs.first }}.{{ domains.main.name }}"
+  #     port: "7357"
 
 ####### Alloy #######
 # List of files that alloy should monitor and send to loki
