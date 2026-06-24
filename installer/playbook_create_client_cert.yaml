@@ -1,0 +1,90 @@
+- name: Create new client certificate
+  hosts: logs
+  gather_facts: false
+  pre_tasks:
+    - name: Gather minimal facts as regular user (No sudo required)
+      setup:
+        gather_subset:
+          - min
+      become: false
+      tags: ["always"]
+
+    - name: Dynamically set sudo executable based on Ubuntu version
+      set_fact:
+        ansible_become_exe: "{{ 'sudo.ws' if (ansible_facts['distribution_major_version'] == '26') else 'sudo' }}"
+      become: false
+      tags: ["always"]
+
+    - name: Dynamically set become
+      set_fact:
+        ansible_become: true
+      become: false
+      tags: ["always"]
+  tasks:
+    - name: Generate client key
+      community.crypto.openssl_privatekey:
+        path: "{{ clients_cert_dir }}/{{ hostname }}-key.pem"
+        size: 4096
+        type: RSA
+        mode: "0440"
+      no_log: true
+
+    - name: Generate client CSRs
+      community.crypto.openssl_csr:
+        path: "{{ clients_cert_dir }}/{{ hostname }}.csr"
+        privatekey_path: "{{ clients_cert_dir }}/{{ hostname }}-key.pem"
+        country_name: "{{ country_name }}"
+        state_or_province_name: "{{ state_or_province_name }}"
+        locality_name: "{{ locality_name }}"
+        organization_name: "{{ organization_name }}"
+        common_name: "{{ hostname }}"
+        subject_alt_name:
+          - "DNS:{{ hostname }}"
+        mode: "0440"
+      no_log: true
+
+    - name: Sign client certificates with Root CA
+      community.crypto.x509_certificate:
+        path: "{{ clients_cert_dir }}/{{ hostname }}-crt.pem"
+        csr_path: "{{ clients_cert_dir }}/{{ hostname }}.csr"
+        ownca_path: "{{ root_ca_dir }}/root-ca.pem"
+        ownca_privatekey_path: "{{ root_ca_key_dir }}/root-ca-key.pem"
+        provider: "ownca"
+        selfsigned_not_after: "+825d"
+        mode: "0440"
+      no_log: true
+
+    - name: Remove client CSR files
+      ansible.builtin.file:
+        path: "{{ clients_cert_dir }}/{{ hostname }}.csr"
+        state: "absent"
+
+    - name: Create directories on controller pc for each client
+      ansible.builtin.file:
+        path: "{{ playbook_dir }}/client_certificates/{{ hostname }}"
+        state: "directory"
+        mode: "0750"
+      delegate_to: localhost
+      become: false
+
+    - name: Fetch client certificates to controller
+      ansible.builtin.fetch:
+        src: "{{ clients_cert_dir }}/{{ hostname }}-crt.pem"
+        dest: "{{ playbook_dir }}/client_certificates/{{ hostname }}/"
+        flat: true
+      no_log: true
+
+    - name: Fetch client keys to controller
+      ansible.builtin.fetch:
+        src: "{{ clients_cert_dir }}/{{ hostname }}-key.pem"
+        dest: "{{ playbook_dir }}/client_certificates/{{ hostname }}/"
+        flat: true
+      no_log: true
+
+###### Tags ######
+
+# Specific modules only                                   just name of the role for example clamav or certs
+# Only install packages                                   install
+# Only copy or replace files/templates                    file
+# Commands that should run one time (not install)           once
+# Systemctl actions                                       handler

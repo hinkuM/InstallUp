@@ -1,7 +1,7 @@
 #!/bin/bash
 CURRENT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &> /dev/null && pwd)
 KEYS_DIR="${CURRENT_DIR}/installer/ssh_keys"
-
+#h
 mkdir -p ${KEYS_DIR}
 chmod 0700 ${KEYS_DIR}
 clear
@@ -13,6 +13,7 @@ printf "Installation of mail server: 2\n"
 printf "Installation of kubernetes cluster: 3\n"
 printf "Encrypt or decrypt ansible vault files: 4\n"
 printf "Recreate certificates for all machines: 5\n"
+printf "Create certificate for new client host: 6\n"
 printf "Exit: 9\n\n"
 
 printf "/\\/\\/\\/\\/\\/\\/\\/\\/\\/\\/\\/\\/\\/\\/\\/\\/\\/\\/\\/\\/\\/\\/\\/\\ \n\n"
@@ -141,12 +142,23 @@ certificates() {
     return 0
 }
 
+new_client_cert() {
+    NEW_HOST=""
+    read -p "Insert hostname of new client: " NEW_HOST
+    if [[ -z "$NEW_HOST" ]]; then
+        echo "Error: hostname cannot be empty"
+        return 1
+    fi    
+    ansible-playbook -i "${CURRENT_DIR}/installer/inventory.yaml" "${CURRENT_DIR}/installer/playbook_create_client_cert.yaml" -e "ansible_python_interpreter=/usr/bin/python3 hostname=${NEW_HOST}" --vault-password-file "${CURRENT_DIR}/.vault_pass"
+}
+
 case $ACTION in
   "1") ssh_keys ;;
   "2") installation ;;
   "3") installation ;;
   "4") ansible_vault ;;
   "5") certificates ;;
+  "6") new_client_cert ;;
   "9") exit ;;
   *) exit ;;
 esac
