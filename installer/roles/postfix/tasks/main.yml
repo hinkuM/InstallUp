@@ -44,30 +44,23 @@
 
 - name: Overwrite config templates
   ansible.builtin.template:
-    src: "{{ item.source }}"
-    dest: "/etc/postfix/{{ item.destination }}"
+    src: "{{ item }}.j2"
+    dest: "/etc/postfix/{{ item }}"
     owner: "root"
     group: "root"
     mode: "0644"
   loop:
-    - source: "local-transport.j2"
-      destination: "local-transport.pcre"
-    - source: "main.cf.j2"
-      destination: "main.cf"
-    - source: "master.cf.j2"
-      destination: "master.cf"
-    - source: "mysql-sender-login.cf.j2"
-      destination: "mysql-sender-login.cf"
-    - source: "mysql-virtual-domains.cf.j2"
-      destination: "mysql-virtual-domains.cf"
-    - source: "mysql-virtual-mailbox-maps.cf.j2"
-      destination: "mysql-virtual-mailbox-maps.cf"
-    - source: "sender-transport.j2"
-      destination: "sender-transport.pcre"
-    - source: "sni-map.j2"
-      destination: "sni-map.map"
+    - "local-transport.pcre"
+    - "main.cf"
+    - "master.cf"
+    - "mysql-sender-login.cf"
+    - "mysql-virtual-domains.cf"
+    - "mysql-virtual-mailbox-maps.cf"
+    - "sender-transport.pcre"
+    - "sni-map.map"
+    - "list_unsub_header"
   no_log: true
-  tags: ["postfix", "file"]
+  tags: ["postfix", "file", 'a']
 
 - name: Rebuild postfix maps
   command: "postmap -F hash:/etc/postfix/{{ item }}"
@@ -75,16 +68,11 @@
     - "sni-map.map"
   tags: ["postfix", "file"]
 
-- name: Overwrite config files
-  ansible.builtin.copy:
-    src: "{{ item }}"
-    dest: "/etc/postfix/{{ item }}"
-    owner: "root"
-    group: "root"
-    mode: "0644"
+- name: Rebuild postfix maps
+  command: "postmap /etc/postfix/{{ item }}"
   loop:
     - "list_unsub_header"
-  tags: ["postfix", "file"]
+  tags: ["postfix", "file", "a"]
 
 - name: Ensure resolv.conf in posftix is owned by root
   ansible.builtin.file:
@@ -100,7 +88,7 @@
   ansible.builtin.service:
     name: "postfix"
     state: "restarted"
-  tags: ["postfix", "handler"]
+  tags: ["postfix", "handler", 'a']
 
 - name: Enable Postfix
   ansible.builtin.service:
@@ -111,6 +99,6 @@
 - name: Set Postfix log file
   ansible.builtin.command: |
     postfix stop && postconf maillog_file=/var/log/mail.log && postfix start
-  tags: ["postfix", "install"]
+  tags: ["postfix", "install", 'a']
 
 
