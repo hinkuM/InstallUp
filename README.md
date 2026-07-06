@@ -13,7 +13,7 @@ All names of packages and some links I used are mentioned in [THIRD-PARTY-NOTICE
 
 </br>
 
-## 💻 Minimal tested setup
+## Minimal tested setup
 | Hostname | Role | Network | Hosts number |
 | :--- | :--- | :--- | :--- |
 | firewall | Manages connections from WAN to inner networks, DHCP and DNS server, controls traffic between inner networks | Between WAN and all inner networks | 1 |
@@ -42,12 +42,12 @@ All names of packages and some links I used are mentioned in [THIRD-PARTY-NOTICE
  ┣━ ⚙️ playbook_kubernetes.yaml         # K8s cluster setup (master, worker)
  ┣━ ⚙️ playbook_lan.yaml                # LAN infra setup (mail, log servers)
  ┣━ ⚙️ playbook_renew_certs.yaml        # Deletes all certificates and creates new ones on LOGS host
- ┗━ 🔑 playbook_ssh_key_change.yaml     # Replaces or removes SSH keys
+ ┗━ ⚙️ playbook_ssh_key_change.yaml     # Replaces or removes SSH keys
 ```
 
 </br>
 
-## 🔥 Step by step on how this *beast* work
+## Step by step on how this *beast* work
   0. Install: ansible-core, python3, ssh-askpass, as well as `ansible-galaxy collection install kubernetes.core --upgrade`; SSH into all hosts to save fingerprint
   1. Configurate one host (usually **firewall**) to handle **DNS**, **DHCP**, **NAT forwarding** (for *mail server*), **firewall rules** for each local network
       - I'm using [OPNsense](https://opnsense.org/) as `firewall`
@@ -69,12 +69,12 @@ All names of packages and some links I used are mentioned in [THIRD-PARTY-NOTICE
 
 </br>
   
-## ✏️ Manual start commands
+## Manual start commands
 
 Remember to change `./` directory so it will point to file correctly. </br>
 Working dir should be same as location of `README.md` file.
 
-### 🐑 LAN
+### LAN
 
 - First time running script for `LAN`, **before main playbook** (*ssh with password*)
 ```
@@ -85,7 +85,7 @@ ansible-playbook -i "./installer/inventory.yaml" "./installer/playbook_apply_ssh
 ansible-playbook -i "./installer/inventory.yaml" "./installer/playbook_lan.yaml" -e 'ansible_python_interpreter=/usr/bin/python3' --tags "" --vault-password-file "./.vault_pass"
 ```
 
-### 🐱 KUBERNETES
+### KUBERNETES
 
 - First time running script for `KUBERNETES`, **before main playbook** (*ssh with password*)
 ```
@@ -97,7 +97,7 @@ ansible-playbook -i "./installer/inventory.yaml" "./installer/playbook_apply_ssh
 ansible-playbook -i "./installer/inventory.yaml" "./installer/playbook_kubernetes.yaml" -e 'ansible_python_interpreter=/usr/bin/python3' --tags "" --vault-password-file "./.vault_pass"
 ```
 
-### 🦣 ALL
+### ALL
 
 - Playbook used to remove/replace SSH keys
 ```
@@ -106,7 +106,7 @@ ansible-playbook -i "./installer/inventory.yaml" "./installer/playbook_ssh_key_c
 
 </br>
 
-## 📦 Created folders/files inside `./installer/`
+## Created folders/files inside `./installer/`
 | File/Folder | Content |
 | :--- | :--- |
 | `certificates/` | All client certificates |
@@ -116,7 +116,7 @@ ansible-playbook -i "./installer/inventory.yaml" "./installer/playbook_ssh_key_c
 
 </br>
 
-## 💸 End results
+## End results
   - Configurated **mail server** to send and receive mails
       - One domain is binded to public IP, rest is not
   - Logging server with **wazuh and grafana dashboards** ~~(some basic dashboard included in grafana)~~
@@ -135,7 +135,7 @@ As for `firewall` configuration, there is a lot of things that needs to be set t
 
 ---------------------------------------------------------------------------------
 
-## ⛓️ Useful commands during configuration
+## Useful commands during configuration
 
 To speed up logging into hosts using SSH add code below to `~/.ssh/config` file then you can just simply use `ssh example_hostname`
 ```

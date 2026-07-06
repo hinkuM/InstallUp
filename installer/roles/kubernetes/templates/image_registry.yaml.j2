@@ -13,6 +13,8 @@ spec:
     env:
     - name: REGISTRY_HTTP_ADDR
       value: 0.0.0.0:5000
+    - name: REGISTRY_HTTP_TLS_CLIENTCA
+      value: /certs/root-ca.pem
     - name: REGISTRY_HTTP_TLS_CERTIFICATE
       value: /certs/client-crt.pem
     - name: REGISTRY_HTTP_TLS_KEY

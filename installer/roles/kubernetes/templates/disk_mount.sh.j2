@@ -1,7 +1,6 @@
 #!/bin/bash
-
-DISK_PATH=$1;
-LONGHORN_FOLDER=$2;
+DISK_PATH=$1
+LONGHORN_FOLDER=$2
 
 if [ -z "$LONGHORN_FOLDER" ]; then
   echo "Error: LONGHORN_FOLDER is required."
@@ -27,28 +26,30 @@ fi
 
 printf "\n##########################################\n"
 printf "BE CAREFUL WHILE DOING THIS HERE, ALWAYS DOUBLE CHECK WHAT YOU ARE DOING\n"
-printf "Disk which will be mounted: $DISK_PATH\n"
-printf "Folder for longhorn with that disk: {{ kubernetes_data_path }}/$LONGHORN_FOLDER\n"
+printf "Disk which will be mounted: %s\n" "$DISK_PATH"
+printf "Folder for longhorn with that disk: {{ kubernetes_data_path }}/%s\n" "$LONGHORN_FOLDER"
 printf "###########################################\n\n"
 
+printf 'mkdir -p "{{ kubernetes_data_path }}/%s"\n\n' "$LONGHORN_FOLDER"
 
-printf "mkdir -p "{{ kubernetes_data_path }}/$LONGHORN_FOLDER"\n\n"
-printf ""!!!!!!!ONLY IF ENTIRE DISK IS EMPTY"!!!!!!!\n"
-printf "sudo wipefs -a $DISK_PATH\n"
-printf "!!!!!!!ONLY IF ENTIRE DISK IS EMPTY"!!!!!!!\n\n"
-printf "sudo fdisk $DISK_PATH\n\n"
+printf "!!!!!!!ONLY IF ENTIRE DISK IS EMPTY!!!!!!!\n"
+printf "sudo wipefs -a %s\n" "$DISK_PATH"
+printf "!!!!!!!ONLY IF ENTIRE DISK IS EMPTY!!!!!!!\n\n"
 
-printf "!!!!!!!ONLY IF ENTIRE DISK IS EMPTY"!!!!!!!\n"
-printf "\nThen press "g" for GPT partition",
-printf "!!!!!!!ONLY IF ENTIRE DISK IS EMPTY"!!!!!!!\n\n"
-printf ""n" for new parition, then press "enter" 3 times to create partition on entire free space, then press "w" to exit and save\n\n"
+printf "!!!!!!!ONLY IF ENTIRE DISK IS EMPTY!!!!!!!\n"
+printf "sudo fdisk %s\n\n" "$DISK_PATH"
 
-printf "sudo mkfs.ext4 $DISK_PATH \n\tand add partition number to disk path at the end like this /dev/sda1\n\n"
-printf "sudo mount $DISK_PATH {{ kubernetes_data_path }}/$LONGHORN_FOLDER \n\t( + partition number)\n\n"
+printf '\nThen press "g" for GPT partition\n'
+printf "!!!!!!!ONLY IF ENTIRE DISK IS EMPTY!!!!!!!\n\n"
+
+printf '"n" for new partition, then press "enter" 3 times to create partition on entire free space, then press "w" to exit and save\n\n'
+
+printf "sudo mkfs.ext4 %s\n\tand add partition number to disk path at the end like this /dev/sda1\n\n" "$DISK_PATH"
+
+printf "sudo mount %s {{ kubernetes_data_path }}/%s\n\t( + partition number)\n\n" "$DISK_PATH" "$LONGHORN_FOLDER"
 
 printf "ls /dev/disk/by-uuid/ -la\n"
-printf "sudo echo /dev/disk/by-uuid/uuid-of-disk-here "{{ kubernetes_data_path }}/$LONGHORN_FOLDER" ext4 defaults 0 2 >> /etc/fstab"
+printf "echo \"/dev/disk/by-uuid/uuid-of-disk-here {{ kubernetes_data_path }}/%s ext4 defaults 0 2\" | sudo tee -a /etc/fstab\n" "$LONGHORN_FOLDER"
 
 printf "\n\n"
-
-exit 1
+exit 0
