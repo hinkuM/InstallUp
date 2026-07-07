@@ -72,7 +72,7 @@
   command: "postmap /etc/postfix/{{ item }}"
   loop:
     - "list_unsub_header"
-  tags: ["postfix", "file", "a"]
+  tags: ["postfix", "file"]
 
 - name: Ensure resolv.conf in posftix is owned by root
   ansible.builtin.file:

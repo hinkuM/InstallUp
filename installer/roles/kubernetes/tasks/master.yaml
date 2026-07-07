@@ -37,7 +37,7 @@
       - "{{ python_yaml }}"
       - "{{ skopeo }}"
       - "{{ acl }}"
-  tags: ["kubernetes", "install", "pod", "a"]
+  tags: ["kubernetes", "install", "pod"]
 
 - name: Prevent specific packages from being updated (Hold)
   ansible.builtin.dpkg_selections:
@@ -285,7 +285,7 @@
   loop:
     - "alloy-daemonset"
     - "wazuh-daemonset"
-  tags: ["kubernetes", "pod", "a"]
+  tags: ["kubernetes", "pod"]
 
 - name: Create wazuh agent secret
   become: true
@@ -301,7 +301,7 @@
         namespace: "wazuh-daemonset"
       stringData:
         authd.pass: "{{ wazuh_join_password }}"
-  tags: ["kubernetes", "pod", "a"]
+  tags: ["kubernetes", "pod"]
 
 - name: Create TLS Secret
   become: true
@@ -322,7 +322,7 @@
   loop:
     - "alloy-daemonset"
     - "wazuh-daemonset"
-  tags: ["kubernetes", "pod", "a"]
+  tags: ["kubernetes", "pod"]
 
 - name: Copy manifests and configs to master
   ansible.builtin.template:
@@ -337,7 +337,7 @@
     # - "ingress_nginx_alloy.yaml"
     # - "metallb.yaml"
     # - "patch_ingress.yaml"
-  tags: ["kubernetes", "file", "pod", "a"]
+  tags: ["kubernetes", "file", "pod"]
 
 ###### Deploy pods section ######
 
@@ -377,7 +377,7 @@
     kubeconfig: "/etc/kubernetes/admin.conf"
   loop:
     - "wazuh_manifest.yaml"
-  tags: ["kubernetes", "pod", "a"]
+  tags: ["kubernetes", "pod"]
     
 ###### Apt section ######
 
@@ -386,7 +386,7 @@
     name: "{{ acl }}"
     state: "absent"
     allow_change_held_packages: true
-  tags: ["kubernetes", "install", "pod", "a"]
+  tags: ["kubernetes", "install", "pod"]
 
 - name: Remove Grafana Helm repo
   kubernetes.core.helm_repository:
