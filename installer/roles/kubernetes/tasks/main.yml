@@ -93,6 +93,15 @@
     mode: "0750"
   tags: ["kubernetes", "file"]
 
+- name: Create directory for kubelet so it doesn't show messages in journal
+  ansible.builtin.file:
+    path: "/etc/kubernetes/manifests"
+    owner: "root"
+    group: "root"
+    state: "directory"
+    mode: "0750"
+  tags: ["kubernetes", "file"]
+
 - name: Copy certificates to docker image dir
   ansible.builtin.copy:
     src: "{{ clients_cert_dir }}/{{ item }}"
