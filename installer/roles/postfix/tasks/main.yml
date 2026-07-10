@@ -60,7 +60,7 @@
     - "sni-map.map"
     - "list_unsub_header"
   no_log: true
-  tags: ["postfix", "file", 'a']
+  tags: ["postfix", "file"]
 
 - name: Rebuild postfix maps
   command: "postmap -F hash:/etc/postfix/{{ item }}"
@@ -88,7 +88,7 @@
   ansible.builtin.service:
     name: "postfix"
     state: "restarted"
-  tags: ["postfix", "handler", 'a']
+  tags: ["postfix", "handler"]
 
 - name: Enable Postfix
   ansible.builtin.service:
@@ -99,6 +99,6 @@
 - name: Set Postfix log file
   ansible.builtin.command: |
     postfix stop && postconf maillog_file=/var/log/mail.log && postfix start
-  tags: ["postfix", "install", 'a']
+  tags: ["postfix", "install"]
 
 

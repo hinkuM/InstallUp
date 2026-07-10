@@ -3,7 +3,7 @@ global:
   evaluation_interval: 15s 
   external_labels:
     monitor: 'central-monitor'
-    origin_prometheus: '{{ ansible_facts["hostname"] }}'
+    origin_prometheus: "{{ ansible_facts['hostname'] }}"
 
 rule_files:
   - 'prometheus.rules.yml'
@@ -20,12 +20,12 @@ scrape_configs:
 
   - job_name: 'grafana'
     scheme: https
-    tls_config:
-      ca_file: "{{ root_ca_dir }}/root-ca.pem"
-      cert_file: "{{ prometheus_cert_dir }}/server-crt.pem"
-      key_file: "{{ prometheus_cert_dir }}/server-key.pem"
+#    tls_config:
+#      ca_file: "{{ root_ca_dir }}/root-ca.pem"
+#      cert_file: "{{ prometheus_cert_dir }}/server-crt.pem"
+#      key_file: "{{ prometheus_cert_dir }}/server-key.pem"
     static_configs:
-      - targets: ['{{ servers.logs.first }}.{{ domains.main.name }}:3000']
+      - targets: ['{{ servers.logs.first }}.{{ domains.main.name }}:{{ grafana_dashboard_port }}']
 
 # change this to consul someday
   - job_name: 'nginx'

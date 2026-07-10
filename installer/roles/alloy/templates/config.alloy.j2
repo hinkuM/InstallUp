@@ -16,7 +16,7 @@ loki.relabel "files" {
 
     rule {
         action = "replace"
-        replacement = '{{ ansible_facts["hostname"] }}'
+        replacement = "{{ ansible_facts['hostname'] }}"
         target_label = "host"
     }
 }
@@ -25,7 +25,7 @@ loki.source.journal "read"  {
     forward_to = [loki.relabel.journal.receiver]
     labels = {
         "program" = "journal",
-        "host" = '{{ ansible_facts["hostname"] }}',
+        "host" = "{{ ansible_facts['hostname'] }}",
         "group" = "standalone-pc",
     }
 }
@@ -43,9 +43,15 @@ loki.write "sender" {
     endpoint {
         url = "https://{{ servers.logs.first }}.{{ domains.main.name }}:3100/loki/api/v1/push"
         tls_config {
+            {% if "logs" in group_names %}
+            ca_file = "{{ root_ca_dir }}/root-ca.pem"
+            cert_file = "{{ clients_cert_dir }}/{{ servers.logs.first }}-crt.pem"
+            key_file  = "{{ clients_cert_dir }}/{{ servers.logs.first }}-key.pem"
+            {% else %}
             ca_file = "{{ clients_cert_dir }}/root-ca.pem"
             cert_file = "{{ clients_cert_dir }}/client-crt.pem"
             key_file  = "{{ clients_cert_dir }}/client-key.pem"
+            {% endif %}
         }
     }
 }
@@ -67,7 +73,7 @@ prometheus.relabel "add_labels_metrics" {
 
   rule {
     action       = "replace"
-    replacement  = '{{ ansible_facts["hostname"] }}'
+    replacement  = "{{ ansible_facts['hostname'] }}"
     target_label = "host"
   }
   rule {
@@ -94,7 +100,7 @@ prometheus.relabel "add_labels_nginx" {
 
   rule {
     action       = "replace"
-    replacement  = '{{ ansible_facts["hostname"] }}'
+    replacement  = "{{ ansible_facts['hostname'] }}"
     target_label = "host"
   }
   rule {
@@ -115,9 +121,15 @@ prometheus.remote_write "central_prometheus" {
   endpoint {
     url = "https://{{ servers.logs.first }}.{{ domains.main.name }}:9090/api/v1/write"
     tls_config {
+        {% if "logs" in group_names %}
+        ca_file = "{{ root_ca_dir }}/root-ca.pem"
+        cert_file = "{{ clients_cert_dir }}/{{ servers.logs.first }}-crt.pem"
+        key_file  = "{{ clients_cert_dir }}/{{ servers.logs.first }}-key.pem"
+        {% else %}
         ca_file = "{{ clients_cert_dir }}/root-ca.pem"
         cert_file = "{{ clients_cert_dir }}/client-crt.pem"
         key_file  = "{{ clients_cert_dir }}/client-key.pem"
+        {% endif %}
     }
   }
 }
