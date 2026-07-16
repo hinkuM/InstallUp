@@ -18,22 +18,17 @@ smtp      inet  n       -       y       -       -       smtpd
 #127.0.0.1:submission inet n -   y       -       -       smtpd
 
 
-# without TLS
-#submission inet n       -       y       -       -       smtpd
-#  -o syslog_name=postfix/submission
-#  -o smtpd_tls_security_level=encrypt
-#  -o smtpd_sasl_auth_enable=yes
-#  -o smtpd_recipient_restrictions=permit_sasl_authenticated,permit_mynetworks,reject
 
-# without TLS (correct one)
-#submission inet n       -       y       -       -       smtpd
-#  -o syslog_name=postfix/submission
-#  -o smtpd_tls_security_level=encrypt
-#  -o smtpd_sasl_auth_enable=yes
-#  -o smtpd_recipient_restrictions=permit_sasl_authenticated,reject
-#  -o smtpd_relay_restrictions=permit_sasl_authenticated,reject
 
-# with TLS (correct one)
+
+submission inet n       -       y       -       -       smtpd
+  -o syslog_name=postfix/submission
+  -o smtpd_tls_security_level=encrypt
+  -o smtpd_sasl_auth_enable=yes
+  -o smtpd_recipient_restrictions=permit_sasl_authenticated,reject
+  -o smtpd_relay_restrictions=permit_sasl_authenticated,reject
+
+
 submissions     inet  n       -       y       -       -       smtpd
   -o syslog_name=postfix/submissions
   -o smtpd_tls_wrappermode=yes

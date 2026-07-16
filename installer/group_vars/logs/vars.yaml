@@ -59,7 +59,7 @@ ports:
   output:
     - "80"
     - "443"
-    - "587"
+    - "465"
   # special:
   #   - action: INPUT
   #     source: "{{ servers.mail.first }}.{{ domains.main.name }}"

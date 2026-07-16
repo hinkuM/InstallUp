@@ -529,13 +529,13 @@ logpath  = %(vsftpd_log)s
 # ASSP SMTP Proxy Jail
 [assp]
 
-port     = smtp,587,submission
+port     = smtp,465,587,submission
 logpath  = /root/path/to/assp/logs/maillog.txt
 
 
 [courier-smtp]
 
-port     = smtp,587,submission
+port     = smtp,465,587,submission
 logpath  = %(syslog_mail)s
 backend  = %(syslog_backend)s
 
@@ -543,7 +543,7 @@ backend  = %(syslog_backend)s
 [postfix]
 # To use another modes set filter parameter "mode" in jail.local:
 mode    = more
-port    = smtp,587,submission
+port    = smtp,465,587,submission
 logpath = %(postfix_log)s
 backend = %(postfix_backend)s
 
@@ -551,7 +551,7 @@ backend = %(postfix_backend)s
 [postfix-rbl]
 
 filter   = postfix[mode=rbl]
-port     = smtp,587,submission
+port     = smtp,465,587,submission
 logpath  = %(postfix_log)s
 backend  = %(postfix_backend)s
 maxretry = 1
@@ -559,7 +559,7 @@ maxretry = 1
 
 [sendmail-auth]
 
-port    = submission,587,smtp
+port    = submission,465,587,smtp
 logpath = %(syslog_mail)s
 backend = %(syslog_backend)s
 
@@ -569,7 +569,7 @@ backend = %(syslog_backend)s
 # normal (default), extra or aggressive
 # See "tests/files/logs/sendmail-reject" or "filter.d/sendmail-reject.conf" for usage example and details.
 #mode    = normal
-port     = smtp,587,submission
+port     = smtp,465,587,submission
 logpath  = %(syslog_mail)s
 backend  = %(syslog_backend)s
 
@@ -577,7 +577,7 @@ backend  = %(syslog_backend)s
 [qmail-rbl]
 
 filter  = qmail
-port    = smtp,587,submission
+port    = smtp,465,587,submission
 logpath = /service/qmail/log/main/current
 
 
@@ -585,14 +585,14 @@ logpath = /service/qmail/log/main/current
 # but can be set by syslog_facility in the dovecot configuration.
 [dovecot]
 
-port    = pop3,pop3s,imap,imaps,submission,587,sieve
+port    = pop3,pop3s,imap,imaps,submission,465,587,sieve
 logpath = %(dovecot_log)s
 backend = %(dovecot_backend)s
 
 
 [sieve]
 
-port   = smtp,587,submission
+port   = smtp,465,587,submission
 logpath = %(dovecot_log)s
 backend = %(dovecot_backend)s
 
@@ -606,19 +606,19 @@ logpath = %(solidpop3d_log)s
 [exim]
 # see filter.d/exim.conf for further modes supported from filter:
 #mode = normal
-port   = smtp,587,submission
+port   = smtp,465,587,submission
 logpath = %(exim_main_log)s
 
 
 [exim-spam]
 
-port   = smtp,587,submission
+port   = smtp,465,587,submission
 logpath = %(exim_main_log)s
 
 
 [kerio]
 
-port    = imap,smtp,imaps,587
+port    = imap,smtp,imaps,465,587
 logpath = /opt/kerio/mailserver/store/logs/security.log
 
 
@@ -629,7 +629,7 @@ logpath = /opt/kerio/mailserver/store/logs/security.log
 
 [courier-auth]
 
-port     = smtp,587,submission,imap,imaps,pop3,pop3s
+port     = smtp,465,587,submission,imap,imaps,pop3,pop3s
 logpath  = %(syslog_mail)s
 backend  = %(syslog_backend)s
 
@@ -637,7 +637,7 @@ backend  = %(syslog_backend)s
 [postfix-sasl]
 
 filter   = postfix[mode=auth]
-port     = smtp,587,submission,imap,imaps,pop3,pop3s
+port     = smtp,465,587,submission,imap,imaps,pop3,pop3s
 # You might consider monitoring /var/log/mail.warn instead if you are
 # running postfix since it would provide the same log lines at the
 # "warn" level but overall at the smaller filesize.
@@ -654,7 +654,7 @@ backend = %(syslog_backend)s
 
 [squirrelmail]
 
-port = smtp,587,submission,imap,imap2,imaps,pop3,pop3s,http,https,socks
+port = smtp,465,587,submission,imap,imap2,imaps,pop3,pop3s,http,https,socks
 logpath = /var/lib/squirrelmail/prefs/squirrelmail_access_log
 
 
