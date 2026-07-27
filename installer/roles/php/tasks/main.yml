@@ -42,6 +42,24 @@
     - "{{ pexpect }}"
   tags: ["php", "install"]
 
+###### Config section ######
+
+- name: Update PHP post_max_size
+  ansible.builtin.lineinfile:
+    path: /etc/php/{{ php_version_number }}/fpm/php.ini
+    regexp: '^post_max_size\s*='
+    line: 'post_max_size = {{ post_max_size }}'
+    backup: yes
+  tags: ["php", "file"]
+
+- name: Update PHP upload_max_filesize
+  ansible.builtin.lineinfile:
+    path: /etc/php/{{ php_version_number }}/fpm/php.ini
+    regexp: '^upload_max_filesize\s*='
+    line: 'upload_max_filesize = {{ upload_max_filesize }}'
+    backup: yes
+  tags: ["php", "file"]
+
 ###### Handler section ######
 
 - name: Restart php-fpm

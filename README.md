@@ -1,6 +1,6 @@
 # Mail server automatization
 This project was made to automate installation of mail server, kubernetes cluster and logging server. This is my first project this big which i spent several months on. My main goal was to learn how to automate and use these new technologies. I hope some of you will find this project useful for your own use.</br></br>
-Currently installer was only tested for `ubuntu-24.04.3-live-server-amd64`, `ubuntu-26.04-live-server-amd64` (except mail server which should be run on `ubuntu-24.04.3`).
+Currently installer was only tested for `ubuntu-26.04-live-server-amd64`, recently didn't have time to test `ubuntu-24.04.3-live-server-amd64` (except mail server which should be run only on `ubuntu-24.04.3`).
 </br></br>
 Installation of OS is made on minimized version of `ubuntu`.
 </br>

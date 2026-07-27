@@ -159,6 +159,13 @@ relay_host: ""
 # Directory where all mails are stored
 mail_path: "/path/to/mails"
 
+####### Mail server #######
+# Max size of HTTP POST request body (should be bigger than upload_max_filesize)
+# Do not go higher than 1G because you would need to change postfix config (main.cf) i think :)
+post_max_size: "125M"
+# Max size for a single file
+upload_max_filesize: "100M"
+
 ####### Rspamd #######
 # Rspamd web UI read only user's password
 spamd_read_only_password: "{{ vault_rspamd_read_only_password }}" 
