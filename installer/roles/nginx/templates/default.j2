@@ -20,7 +20,8 @@ server {
     index index.php index.html static.php installer.php;
 
     server_name {{ item.cert_domain }};
-
+    client_max_body_size {{ client_max_body }};
+    
     ssl_certificate     /etc/letsencrypt/live/{{ item.cert_domain }}/fullchain.pem;
     ssl_certificate_key /etc/letsencrypt/live/{{ item.cert_domain }}/privkey.pem;
     

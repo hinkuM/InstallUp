@@ -165,6 +165,8 @@ mail_path: "/path/to/mails"
 post_max_size: "125M"
 # Max size for a single file
 upload_max_filesize: "100M"
+# Max size for client in nginx
+client_max_body: "125m"
 
 ####### Rspamd #######
 # Rspamd web UI read only user's password
