@@ -63,16 +63,15 @@
   tags: ["postfix", "file"]
 
 - name: Rebuild postfix maps
-  command: "postmap -F hash:/etc/postfix/{{ item }}"
-  loop:
-    - "sni-map.map"
+  command: "postmap -F hash:/etc/postfix/sni-map.map"
   tags: ["postfix", "file"]
 
-- name: Rebuild postfix maps
-  command: "postmap /etc/postfix/{{ item }}"
-  loop:
-    - "list_unsub_header"
-  tags: ["postfix", "file"]
+# DON'T BUILD THIS
+# - name: Rebuild postfix maps
+#   command: "postmap /etc/postfix/{{ item }}"
+#   loop:
+#     - "list_unsub_header"
+#   tags: ["postfix", "file"]
 
 - name: Ensure resolv.conf in posftix is owned by root
   ansible.builtin.file:
@@ -100,5 +99,3 @@
   ansible.builtin.command: |
     postfix stop && postconf maillog_file=/var/log/mail.log && postfix start
   tags: ["postfix", "install"]
-
-

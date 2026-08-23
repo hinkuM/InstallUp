@@ -154,6 +154,8 @@
     dest: "/etc/letsencrypt/renewal-hooks/deploy/reload-mail.sh"
     content: |
       #!/bin/bash
+      set -e
+      postmap -F hash:/etc/postfix/sni-map.map
       systemctl reload dovecot
       systemctl reload postfix
     mode: "0755"
